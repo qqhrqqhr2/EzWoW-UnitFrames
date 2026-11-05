@@ -1,0 +1,37 @@
+## Interface: 16001
+## Title: EzWoW - Unit Frames
+## Title-enUS: EzWoW - Unit Frames
+## Title-koKR: EzWoW - Unit Frames
+## Title-deDE: EzWoW - Unit Frames
+## Title-frFR: EzWoW - Unit Frames
+## Title-esES: EzWoW - Unit Frames
+## Title-esMX: EzWoW - Unit Frames
+## Title-ruRU: EzWoW - Unit Frames
+## Title-zhCN: EzWoW - Unit Frames
+## Title-zhTW: EzWoW - Unit Frames
+## Notes: Clean player, target, target of target, focus, pet and party frames. (/ezuf)
+## Notes-enUS: Clean player, target, target of target, focus, pet and party frames. (/ezuf)
+## Notes-koKR: 내 캐릭터·대상·대상의 대상·주시 대상·소환수·파티 체력바를 깔끔하게 바꿉니다. (/ezuf, /유닛프레임)
+## Notes-deDE: Schlichte Fenster für Spieler, Ziel, Ziel des Ziels, Fokus, Begleiter und Gruppe. (/ezuf)
+## Notes-frFR: Cadres sobres pour le joueur, la cible, sa cible, le focus, le familier et le groupe. (/ezuf)
+## Notes-esES: Marcos sencillos de jugador, objetivo, objetivo del objetivo, foco, mascota y grupo. (/ezuf)
+## Notes-esMX: Marcos sencillos de jugador, objetivo, objetivo del objetivo, foco, mascota y grupo. (/ezuf)
+## Notes-ruRU: Простые рамки игрока, цели, цели цели, фокуса, питомца и группы. (/ezuf)
+## Notes-zhCN: 简洁的玩家、目标、目标的目标、焦点、宠物与队伍框体。(/ezuf)
+## Notes-zhTW: 簡潔的玩家、目標、目標的目標、專注目標、寵物與隊伍框架。(/ezuf)
+## Author: qqhrqqhr2
+## Version: 1.0.0
+## Category: EzWoW
+## IconTexture: Interface\AddOns\EzWoW-UnitFrames\Media\Icon
+## SavedVariables: EzWoW_UnitFramesDB
+
+Core\Init.lua
+Core\Locales.lua
+Core\UIKit.lua
+Modules\UnitButton.lua
+Modules\Auras.lua
+Modules\Castbar.lua
+Modules\Frames.lua
+Modules\Nameplates.lua
+UI\LanguageDropdown.lua
+UI\OptionsWindow.lua
