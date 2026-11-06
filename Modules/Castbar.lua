@@ -76,11 +76,18 @@ function ns.CreateCastbar(f, above, height)
     cb.time:SetPoint("RIGHT", -4, 0)
     if HEIGHT < 14 then cb.time:Hide() cb.time.SetFormattedText = function() end end
 
-    cb.shield = cb:CreateTexture(nil, "OVERLAY")
+    -- The shield sits on its own frame: a secret "not interruptible" flag can only
+    -- be applied through SetAlphaFromBoolean, which works on frames (on a texture
+    -- it draws nothing).
+    cb.shieldHost = CreateFrame("Frame", nil, cb)
+    cb.shieldHost:SetAllPoints(cb.iconFrame)
+    cb.shieldHost:SetFrameLevel(cb.iconFrame:GetFrameLevel() + 1)
+    cb.shieldHost:EnableMouse(false)
+    cb.shieldHost:SetAlpha(0)
+    cb.shield = cb.shieldHost:CreateTexture(nil, "OVERLAY")
     cb.shield:SetTexture("Interface\\CastingBar\\UI-CastingBar-Small-Shield")
     cb.shield:SetSize(HEIGHT * 2, HEIGHT * 2)
     cb.shield:SetPoint("CENTER", cb.iconFrame, "CENTER", 0, -1)
-    cb.shield:Hide()
 
     cb:SetScript("OnHide", function(self)
         clearTimer(self)
@@ -105,6 +112,19 @@ local function readCast(unit)
     return nil
 end
 
+-- Secret "not interruptible": the client picks the colour and the shield's
+-- visibility from the flag; nothing is compared here. false when unsupported.
+local function applySecretLock(cb, flag, normal)
+    local fold = C_CurveUtil and C_CurveUtil.EvaluateColorValueFromBoolean
+    if type(fold) ~= "function" or not cb.shieldHost.SetAlphaFromBoolean then return false end
+    local locked = ns.Style.castLocked
+    return pcall(function()
+        cb:SetStatusBarColor(fold(flag, locked[1], normal[1]), fold(flag, locked[2], normal[2]),
+            fold(flag, locked[3], normal[3]))
+        cb.shieldHost:SetAlphaFromBoolean(flag, 1, 0)
+    end)
+end
+
 function ns.UpdateCastbar(f)
     local cb = f.castbar
     if not cb then return end
@@ -121,10 +141,13 @@ function ns.UpdateCastbar(f)
     if not pcall(cb.text.SetText, cb.text, name) then cb.text:SetText("") end
     pcall(cb.icon.SetTexture, cb.icon, texture)
 
-    local locked = (not IsSecret(notInterruptible)) and notInterruptible == true
-    local color = locked and ns.Style.castLocked or (channel and ns.Style.castChannel or ns.Style.castbar)
-    cb:SetStatusBarColor(color[1], color[2], color[3])
-    cb.shield:SetShown(locked)
+    local normal = channel and ns.Style.castChannel or ns.Style.castbar
+    if not (IsSecret(notInterruptible) and applySecretLock(cb, notInterruptible, normal)) then
+        local locked = (not IsSecret(notInterruptible)) and notInterruptible == true
+        local color = locked and ns.Style.castLocked or normal
+        cb:SetStatusBarColor(color[1], color[2], color[3])
+        cb.shieldHost:SetAlpha(locked and 1 or 0)
+    end
 
     if not IsSecret(startMS) and not IsSecret(endMS) and type(startMS) == "number" and type(endMS) == "number" then
         clearTimer(cb)
@@ -159,6 +182,7 @@ function ns.CastbarStopped(f, interrupted)
         clearTimer(cb)
         cb:SetValue(1)
         cb:SetStatusBarColor(rgba(ns.Style.warning))
+        cb.shieldHost:SetAlpha(0)
         cb.text:SetText(ns:L("interrupted"))
         cb.time:SetText("")
         cb.holdUntil = GetTime() + 0.6

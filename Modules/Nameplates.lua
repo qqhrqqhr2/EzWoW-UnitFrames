@@ -77,7 +77,36 @@ local function createWidget()
         b:EnableMouse(false)   -- the plate must stay clickable through the icons
         w.debuffs[i] = b
     end
+    w:Hide()
     return w
+end
+
+-- My debuffs through an engine aura container (works in combat). Built out of
+-- combat only; a widget without one keeps the icon scan above.
+local PLATE_FILTERS = { "HARMFUL|INCLUDE_NAME_PLATE_ONLY|PLAYER", "HARMFUL|PLAYER" }
+
+local function ensureContainer(w)
+    if w.auraContainer or w.noContainer or ns.InCombat() then return end
+    if not ns.CreatePlateAuraContainer then return end
+    local ok, c = pcall(ns.CreatePlateAuraContainer, w, w.name, PLATE_FILTERS, MAX_DEBUFFS, DEBUFF_SIZE, 2)
+    if ok and c then
+        w.auraContainer = c
+    else
+        w.noContainer = true
+    end
+end
+
+-- Widgets (with their containers) made ahead, so plates that appear in combat
+-- still get one.
+local PREWARM = 16
+local function prewarm()
+    if ns.InCombat() or not ns.db or not ns.db.nameplates then return end
+    for _, w in ipairs(pool) do ensureContainer(w) end
+    for _ = #pool + 1, PREWARM do
+        local w = createWidget()
+        ensureContainer(w)
+        pool[#pool + 1] = w
+    end
 end
 
 local function layoutDebuffs(w)
@@ -110,10 +139,12 @@ local function reactionColor(unit)
     return fc and { fc.r, fc.g, fc.b } or { 0.9, 0.2, 0.2 }
 end
 
+-- Returns a colour, or nil plus true when the threat status is secret.
 local function threatColor(unit)
     if not ns.db.plateThreat then return nil end
     if not Plain(UnitAffectingCombat, unit) then return nil end
-    local status = Plain(UnitThreatSituation, "player", unit)
+    local status = Raw(UnitThreatSituation, "player", unit)
+    if IsSecret(status) then return nil, true end
     local inGroup = Plain(IsInGroup) and true or false
     if ns.db.plateTankMode then
         if status == 3 then return THREAT_TANK_GOOD end
@@ -124,17 +155,45 @@ local function threatColor(unit)
     return type(status) == "number" and THREAT_DPS[status] or nil
 end
 
+-- Secret threat: the client still tells whether I am tanking the unit (as a
+-- secret boolean), and picks between two colours for us without a comparison.
+local function secretThreatColor(w, base)
+    local fold = C_CurveUtil and C_CurveUtil.EvaluateColorValueFromBoolean
+    if type(fold) ~= "function" or type(UnitDetailedThreatSituation) ~= "function" then return false end
+    local ok, isTanking = pcall(UnitDetailedThreatSituation, "player", w.unit)
+    if not ok or type(isTanking) ~= "boolean" then return false end
+    local on, off
+    if ns.db.plateTankMode then
+        on = THREAT_TANK_GOOD
+        off = (Plain(IsInGroup) and THREAT_TANK_LOST) or base
+    else
+        on, off = THREAT_DPS[3], base
+    end
+    return pcall(function()
+        w.health:SetStatusBarColor(fold(isTanking, on[1], off[1]), fold(isTanking, on[2], off[2]),
+            fold(isTanking, on[3], off[3]))
+    end)
+end
+
 local function updateColor(w)
-    local c = threatColor(w.unit) or reactionColor(w.unit)
+    local c, secret = threatColor(w.unit)
+    if not c then
+        c = reactionColor(w.unit)
+        if secret and secretThreatColor(w, c) then return end
+    end
     w.health:SetStatusBarColor(c[1], c[2], c[3])
 end
 
 local function updateHealth(w)
     local unit = w.unit
     local hp, maxhp = Raw(UnitHealth, unit), Raw(UnitHealthMax, unit)
+    if not ns.FillBarFromPercent(w.health, ns.HealthPercent(unit)) then
+        if not IsSecret(maxhp) and (type(maxhp) ~= "number" or maxhp <= 0) then maxhp = 1 end
+        w.health.ezTop = nil
+        pcall(w.health.SetMinMaxValues, w.health, 0, maxhp)
+        pcall(w.health.SetValue, w.health, hp or 0)
+    end
     if not IsSecret(maxhp) and (type(maxhp) ~= "number" or maxhp <= 0) then maxhp = 1 end
-    pcall(w.health.SetMinMaxValues, w.health, 0, maxhp)
-    pcall(w.health.SetValue, w.health, hp or 0)
     if not IsSecret(hp) and not IsSecret(maxhp) and type(hp) == "number" then
         local pct = math.floor(hp / maxhp * 100 + 0.5)
         w.pct:SetText(pct < 100 and (pct .. "%") or "")
@@ -166,6 +225,12 @@ local function updateName(w)
 end
 
 local function updateDebuffs(w)
+    local c = w.auraContainer
+    if c then
+        -- the engine follows UNIT_AURA itself
+        pcall(c.SetShown, c, ns.db.plateDebuffs and true or false)
+        return
+    end
     local used = 0
     if ns.db.plateDebuffs then
         for i = 1, 40 do
@@ -320,6 +385,12 @@ local function placeMarker(tex, plate, unit)
     tex:ClearAllPoints()
     local w = active[unit]
     if w and w.plate == plate and w:IsShown() then
+        if w.auraContainer and ns.db.plateDebuffs then
+            -- the engine row's size is unknown to us (and nothing may anchor to
+            -- it), so the marker goes left of the name instead of above the row
+            tex:SetPoint("BOTTOMRIGHT", w, "TOPLEFT", -2, 1)
+            return
+        end
         local offset = 2
         for _, b in ipairs(w.debuffs) do
             if b:IsShown() then offset = DEBUFF_SIZE + 4 break end
@@ -484,6 +555,9 @@ local function detach(unit)
     if not w then return end
     active[unit] = nil
     if w.plate then setBlizzardVisible(w.plate, true, w) end
+    if w.auraContainer and not pcall(w.auraContainer.SetUnit, w.auraContainer, "none") then
+        pcall(w.auraContainer.SetUnit, w.auraContainer, nil)
+    end
     w:Hide()
     w:ClearAllPoints()
     w:SetParent(UIParent)
@@ -512,7 +586,12 @@ local function attach(unit)
     if not Plain(UnitCanAttack, "player", unit) then return end
 
     local w = table.remove(pool) or createWidget()
+    ensureContainer(w)
     w.unit, w.plate = unit, plate
+    if w.auraContainer then
+        pcall(w.auraContainer.SetUnit, w.auraContainer, unit)
+        pcall(w.auraContainer.UpdateAllAuras, w.auraContainer)
+    end
     w:SetParent(plate)
     w:SetScale(ns.db.plateScale or 1)
     w:ClearAllPoints()
@@ -607,8 +686,10 @@ eventFrame:SetScript("OnEvent", function(self, event, unit)
             "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED" }) do
             pcall(self.RegisterEvent, self, name)
         end
+        C_Timer.After(1, prewarm)
         return
     end
+    if event == "PLAYER_REGEN_ENABLED" then prewarm() end
     if event == "NAME_PLATE_UNIT_ADDED" then
         attach(unit)
         updateQuestMarker(unit)

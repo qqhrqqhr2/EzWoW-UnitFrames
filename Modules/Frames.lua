@@ -297,12 +297,14 @@ local function layoutParty()
     if not holder then return end
     local size = ns.SIZES.party
     local height = ns.FrameHeight(size)
+    -- room for the buff row under each member
+    local gap = PARTY_GAP + ((ns.db.partyBuffs and ns.PARTY_BUFF_ROW) or 0)
     for i = 1, 4 do
         local f = ns.frames["party" .. i]
         f:ClearAllPoints()
-        f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (height + PARTY_GAP))
+        f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (height + gap))
     end
-    holder:SetSize(size.w, 4 * height + 3 * PARTY_GAP)
+    holder:SetSize(size.w, 4 * height + 3 * gap)
 end
 
 -- Size, scale and position of everything. Protected: runs after combat if needed.
@@ -566,7 +568,9 @@ local UNIT_EVENTS = {
     UNIT_LEVEL = function(f) ns.UpdateInfo(f) end,
     UNIT_FACTION = function(f) ns.UpdateHealthColor(f) end,
     UNIT_CLASSIFICATION_CHANGED = function(f) ns.UpdateInfo(f) end,
-    UNIT_AURA = function(f) ns.UpdateAuras(f) end,
+    -- party aura containers follow UNIT_AURA themselves
+    UNIT_AURA = function(f) if not f.partyDebuffs then ns.UpdateAuras(f) end end,
+    UNIT_IN_RANGE_UPDATE = function(f) ns.UpdateRange(f) end,
     UNIT_PORTRAIT_UPDATE = function(f) ns.UpdatePortrait(f) end,
     UNIT_MODEL_CHANGED = function(f) ns.UpdatePortrait(f) end,
     UNIT_SPELLCAST_START = function(f) ns.UpdateCastbar(f) end,

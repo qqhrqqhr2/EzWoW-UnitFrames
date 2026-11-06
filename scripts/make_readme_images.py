@@ -123,7 +123,7 @@ T = {
         "sTitle": "설정창",
         "sNotes": [
             ("사용할 프레임", "내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티를 각각 켜고 끕니다."),
-            ("표시", "직업 색, 초상화, 시전바, 버프·디버프, 연계 점수, 드루이드 마나, 파티 디버프·사거리, 위협 테두리, 기본 프레임 숨기기, 기력 틱·마나 5초 규칙."),
+            ("표시", "직업 색, 초상화, 시전바, 버프·디버프, 연계 점수, 드루이드 마나, 파티 버프·디버프·사거리, 위협 테두리, 기본 프레임 숨기기, 기력 틱·마나 5초 규칙, 체력바·피격·회복 효과."),
             ("이름표", "EzWoW 이름표, 시전바, 내 디버프, 위협 색(탱커 기준), 대상 아닌 이름표 흐리게, 퀘스트 몹 표시, 이름표 크기 70~160%."),
             ("체력 글자", "큰 프레임 · 작은 프레임 · 파티 각각: 현재 · %, 현재 / 최대, 현재, %, 부족량, 표시 안 함."),
             ("크기·위치", "프레임 크기 60~160%, 잠금 해제 후 끌어서 이동(전투 시작 시 자동 잠금), 위치 초기화, 언어."),
@@ -155,7 +155,7 @@ T = {
         "sTitle": "Settings",
         "sNotes": [
             ("Frames", "Turn player, target, target of target, focus, pet and party on or off one by one."),
-            ("Display", "Class colours, portraits, cast bars, buffs and debuffs, combo points, druid mana, party debuffs and range, threat border, hide default frames, energy ticks and mana 5-second rule."),
+            ("Display", "Class colours, portraits, cast bars, buffs and debuffs, combo points, druid mana, party buffs, debuffs and range, threat border, hide default frames, energy ticks and mana 5-second rule, health bar, hit and heal effects."),
             ("Nameplates", "EzWoW plates, cast bars, your debuffs, threat colours (tank view), fade non-target plates, quest mob marker, plate size 70–160%."),
             ("Health text", "For big frames, small frames and party: current · %, current / max, current, %, deficit, hidden."),
             ("Size & position", "Frame size 60–160%, unlock to drag (locks again in combat), reset positions, language."),
@@ -561,13 +561,13 @@ def ui_page(lang, ctx):
 
 
 # ---------------------------------------------------------------------------
-# Settings window (UI/OptionsWindow.lua, 460 x 882)
+# Settings window (UI/OptionsWindow.lua, 460 x 908)
 # ---------------------------------------------------------------------------
 def settings_page(lang, ctx):
     global S
     S = 1.22
     t, L, st, dflt = T[lang], ctx["L"][lang], ctx["style"], ctx["defaults"]
-    W, H = 460, 882
+    W, H = 460, 908
     ox, oy = 60, 160
     p = []
     accent_c = css(st["accent"])
@@ -611,17 +611,17 @@ def settings_page(lang, ctx):
     L1, L2 = 20, 236
     rows = [("classColor", "portraits"), ("targetCastbar", "focusCastbar"), ("targetAuras", "onlyMyDebuffs"),
             ("comboPoints", "druidMana"), ("partyDebuffs", "rangeFade"), ("threatBorder", "partyInRaid"),
-            ("hideBlizzard", "playerAuras"), ("powerTicks", None)]
+            ("hideBlizzard", "playerAuras"), ("powerTicks", "healthFX"), ("hitFX", "partyBuffs")]
     for r, (a, b) in enumerate(rows):
         check(L1, 184 + r * 26, L["opt_" + a], dflt[a])
         if b:
             check(L2, 184 + r * 26, L["opt_" + b], dflt[b])
-    section("secPlates", 404)
+    section("secPlates", 430)
     prow = [("nameplates", "plateCastbar"), ("plateDebuffs", "plateThreat"), ("plateTankMode", "plateFadeOthers"), ("plateQuest", None)]
     for r, (a, b) in enumerate(prow):
-        check(L1, 428 + r * 26, L["opt_" + a], dflt[a])
+        check(L1, 454 + r * 26, L["opt_" + a], dflt[a])
         if b:
-            check(L2, 428 + r * 26, L["opt_" + b], dflt[b])
+            check(L2, 454 + r * 26, L["opt_" + b], dflt[b])
 
     def stepper(label, y_label, y_btn, value):
         p.append(f'<div class="t" style="left:{px(24)};top:{px(y_label)};font-size:{px(12)};color:{body_c};{OUTLINE}">'
@@ -629,25 +629,25 @@ def settings_page(lang, ctx):
         p.append(btn(150, y_btn, 27, 27, "-", size=16))
         p.append(text(150 + 27 + 4 + 26, y_btn + 13.5, value, 12, body_c, anchor="center"))
         p.append(btn(150 + 27 + 60, y_btn, 27, 27, "+", size=16))
-    stepper(L["plateScale"], 542, 535, "100%")
-    section("secText", 570)
+    stepper(L["plateScale"], 568, 561, "100%")
+    section("secText", 596)
     for x, lk, mode in ((20, "textBig", "curpct"), (162, "textSmall", "percent"), (304, "textParty", "percent")):
-        p.append(f'<div class="t" style="left:{px(x + 2)};top:{px(596)};font-size:{px(11)};color:{muted_c};{OUTLINE}">'
+        p.append(f'<div class="t" style="left:{px(x + 2)};top:{px(622)};font-size:{px(11)};color:{muted_c};{OUTLINE}">'
                  f'<span class="fit" data-fit="{128 * S:.1f}" data-min="{8 * S:.1f}">{L[lk]}</span></div>')
-        p.append(btn(x, 612, 132, 26, L["text_" + mode] + " ▼", size=11))
-    section("secLayout", 654)
-    stepper(L["scale"], 688, 681, "100%")
-    p.append(btn(20, 718, 205, 32, L["unlock"], accent=True))
-    p.append(btn(235, 718, 205, 32, L["resetPos"]))
-    p.append(btn(20, 758, 205, 28, f'{L["language"]}: Auto ▼'))
-    p.append(btn(235, 758, 205, 28, L["donate"], accent=True))
-    p.append(f'<div class="abs" style="left:{px(22)};top:{px(798)};width:{px(416)};font-size:{px(10.5)};line-height:1.35;color:{muted_c};{OUTLINE}">{L["hint"]}</div>')
+        p.append(btn(x, 638, 132, 26, L["text_" + mode] + " ▼", size=11))
+    section("secLayout", 680)
+    stepper(L["scale"], 714, 707, "100%")
+    p.append(btn(20, 744, 205, 32, L["unlock"], accent=True))
+    p.append(btn(235, 744, 205, 32, L["resetPos"]))
+    p.append(btn(20, 784, 205, 28, f'{L["language"]}: Auto ▼'))
+    p.append(btn(235, 784, 205, 28, L["donate"], accent=True))
+    p.append(f'<div class="abs" style="left:{px(22)};top:{px(824)};width:{px(416)};font-size:{px(10.5)};line-height:1.35;color:{muted_c};{OUTLINE}">{L["hint"]}</div>')
     p.append(f'<div class="t" style="left:{px(W / 2)};top:{px(H - 18)};transform:translate(-50%,0);font-size:{px(10)};color:#808080">'
              f'{ctx["title"]}{" v" + ctx["version"] if ctx["version"] else ""}  ·  /ezuf</div>')
 
     win = (f'<div class="abs" style="left:{ox}px;top:{oy}px;width:{px(W)};height:{px(H)};background:{css(st["bgPrimary"])};'
            f'border:1px solid {css(st["border"])}">' + "".join(p) + "</div>")
-    spans = [(secs[0], secs[1]), (secs[1], secs[2]), (secs[2], secs[3]), (secs[3], secs[4]), (secs[4], 800)]
+    spans = [(secs[0], secs[1]), (secs[1], secs[2]), (secs[2], secs[3]), (secs[3], secs[4]), (secs[4], 826)]
     calls = "".join(f'<div class="call" style="left:{ox + W * S + 18:.0f}px;top:{oy + (a + b) / 2 * S - 15:.0f}px">{i}</div>'
                     for i, (a, b) in enumerate(spans, 1))
     notes = "".join(f'<div class="note"><span class="n">{i}</span><div><b>{a}</b> — {b}</div></div>' for i, (a, b) in enumerate(t["sNotes"], 1))

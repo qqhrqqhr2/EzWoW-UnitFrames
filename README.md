@@ -25,7 +25,8 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - 대상·주시 대상 시전바 (차단할 수 없는 주문은 회색 + 방패 표시, 차단되면 "차단됨")
 - 대상 버프·디버프 (내가 건 것은 금색 테두리, 내 디버프만 보기 옵션), 내 캐릭터 버프·디버프
 - 연계 점수(도적·드루이드), 변신 중 드루이드 마나
-- 파티원 디버프 아이콘과 내가 해제할 수 있는 디버프 테두리 표시, 사거리 밖 파티원 흐리게
+- 파티원 버프 줄(체력바 아래)·디버프 아이콘과 내가 해제할 수 있는 디버프 테두리 표시, 사거리 밖 파티원 흐리게
+- **체력바 효과**: 광택·전투 중 맥동·낮은 체력 경고, 맞을 때 빨간 잔상과 번쩍임, 회복 때 초록 잔상
 - 위협 수준 테두리, 공격대 징표·파티장·전투·휴식 아이콘, 정예·희귀 표시
 
 ### 이름표 (적 머리 위 체력바)
@@ -58,7 +59,8 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - Target and focus cast bars (uninterruptible casts are grey with a shield; "Interrupted" on kicks)
 - Target buffs and debuffs (yours have a gold border; option to show only yours), player buffs and debuffs
 - Combo points (rogue, druid) and druid mana while shapeshifted
-- Party debuff icons, a glow for debuffs you can dispel, faded out-of-range members
+- Party buff row (under the health bar) and debuff icons, a glow for debuffs you can dispel, faded out-of-range members
+- **Health bar effects**: gloss, a combat pulse and low-health warning, a red trail and flash when hit, a green trail when healed
 - Threat border, raid marker, leader, combat and resting icons, elite and rare tags
 
 ### Nameplates (enemies)

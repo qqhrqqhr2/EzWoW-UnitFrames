@@ -30,6 +30,7 @@ Core\Init.lua
 Core\Locales.lua
 Core\UIKit.lua
 Modules\UnitButton.lua
+Modules\HealthEffects.lua
 Modules\Auras.lua
 Modules\Castbar.lua
 Modules\Frames.lua

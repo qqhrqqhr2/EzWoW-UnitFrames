@@ -49,7 +49,10 @@ local function makeBar(parent)
     if not ok and shine.SetGradientAlpha then
         ok = pcall(shine.SetGradientAlpha, shine, "VERTICAL", 1, 1, 1, 0, 1, 1, 1, 0.16)
     end
-    if not ok then shine:Hide() end
+    if not ok then
+        shine:Hide()
+        shine.ezOff = true -- stays hidden (it would be a plain white block)
+    end
     bar.shine = shine
     return bar
 end
@@ -80,6 +83,9 @@ function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
     f:SetBackdropBorderColor(rgba(ns.Style.border))
 
     f.health = makeBar(f)
+    -- hit/heal trail bars go between the bar background and the fill; built
+    -- before anything else takes its frame level from the health bar
+    if ns.BuildHealthTrails then ns.BuildHealthTrails(f) end
     f.power = makeBar(f)
 
     local hl = f:CreateTexture(nil, "HIGHLIGHT")
@@ -316,6 +322,56 @@ local function secretPercent(unit)
     end
     return nil
 end
+ns.HealthPercent = secretPercent
+
+function ns.PowerPercent(unit, powerType)
+    if type(UnitPowerPercent) == "function" and CurveConstants and CurveConstants.ScaleTo100 then
+        return Raw(UnitPowerPercent, unit, powerType, true, CurveConstants.ScaleTo100)
+    end
+    return nil
+end
+
+-- Bar value with an optional fill animation (Enum.StatusBarInterpolation).
+-- Clients that refuse the second argument get the plain call from then on.
+local interpOK = Enum and Enum.StatusBarInterpolation and true or false
+function ns.SetBarValue(bar, value, interp)
+    if interp ~= nil and interpOK then
+        if pcall(bar.SetValue, bar, value, interp) then return true end
+        if pcall(bar.SetValue, bar, value) then
+            interpOK = false
+            return true
+        end
+        return false
+    end
+    return pcall(bar.SetValue, bar, value) and true or false
+end
+
+-- A bar's range can't be set from a secret maximum (the call is ignored), so the
+-- bar runs 0-100 on the client's percent, which works with secret values.
+-- false when there is no percent (older client): the caller uses the plain values.
+-- The range is only set when it changes (bar.ezTop), so a running fill animation
+-- isn't restarted; code that sets another range clears bar.ezTop.
+function ns.FillBarFromPercent(bar, pct, interp)
+    if not IsSecret(pct) and pct == nil then return false end
+    if bar.ezTop ~= 100 then
+        if not pcall(bar.SetMinMaxValues, bar, 0, 100) then return false end
+        bar.ezTop = 100
+    end
+    return ns.SetBarValue(bar, pct, interp)
+end
+
+-- Missing health as "-12.3k", blank at full health, also for secret values.
+local function setSecretDeficit(fs, unit)
+    if type(UnitHealthMissing) ~= "function" then return false end
+    if not (C_StringUtil and type(C_StringUtil.TruncateWhenZero) == "function") then return false end
+    local missing = Raw(UnitHealthMissing, unit, true)
+    if not IsSecret(missing) and missing == nil then return false end
+    return pcall(function()
+        fs:SetText(C_StringUtil.TruncateWhenZero(missing))
+        -- the text is empty exactly when nothing is missing
+        if fs:GetText() then fs:SetFormattedText("-%s", ns.ShortNumber(missing)) end
+    end)
+end
 
 local function setHealthText(fs, mode, unit, hp, maxhp)
     if mode == "none" then fs:SetText("") return end
@@ -336,13 +392,17 @@ local function setHealthText(fs, mode, unit, hp, maxhp)
     end
     -- secret values (restricted combat): only what the client can format for us
     local pct = secretPercent(unit)
+    -- a secret value is never compared, only checked for presence
+    local hasPct = IsSecret(pct) or pct ~= nil
     local ok
-    if mode == "percent" and pct ~= nil then
-        ok = pcall(fs.SetFormattedText, fs, "%d%%", pct)
+    if mode == "percent" and hasPct then
+        ok = pcall(fs.SetFormattedText, fs, "%.0f%%", pct)
     elseif mode == "both" then
         ok = pcall(fs.SetFormattedText, fs, "%s / %s", ns.ShortNumber(hp), ns.ShortNumber(maxhp))
-    elseif mode == "curpct" and pct ~= nil then
-        ok = pcall(fs.SetFormattedText, fs, "%s · %d%%", ns.ShortNumber(hp), pct)
+    elseif mode == "curpct" and hasPct then
+        ok = pcall(fs.SetFormattedText, fs, "%s · %.0f%%", ns.ShortNumber(hp), pct)
+    elseif mode == "deficit" then
+        ok = setSecretDeficit(fs, unit)
     else
         ok = pcall(fs.SetFormattedText, fs, "%s", ns.ShortNumber(hp))
     end
@@ -358,17 +418,29 @@ end
 function ns.UpdateHealth(f)
     local unit = f.unit
     if previewing(f) then
+        f.health.ezTop = nil
         f.health:SetMinMaxValues(0, 1)
         f.health:SetValue(0.72)
+        if ns.HealthBarInterp then ns.HealthBarInterp(f) end
+        if ns.UpdateHealthTrails then ns.UpdateHealthTrails(f, 1, 0.72) end
         f.healthText:SetText("72%")
         f.healthText:Show()
         f.statusText:Hide()
+        if ns.UpdateHealthFX then ns.UpdateHealthFX(f) end
         return
     end
     local hp, maxhp = Raw(UnitHealth, unit), Raw(UnitHealthMax, unit)
     if not IsSecret(maxhp) and (type(maxhp) ~= "number" or maxhp <= 0) then maxhp = 1 end
-    pcall(f.health.SetMinMaxValues, f.health, 0, maxhp)
-    pcall(f.health.SetValue, f.health, hp or 0)
+    -- eased fill (nil = plain set) and the trail bars behind it (HealthEffects)
+    local interp = ns.HealthBarInterp and ns.HealthBarInterp(f) or nil
+    local value, top = secretPercent(unit), 100
+    if not ns.FillBarFromPercent(f.health, value, interp) then
+        value, top = hp or 0, maxhp
+        f.health.ezTop = nil
+        pcall(f.health.SetMinMaxValues, f.health, 0, maxhp)
+        ns.SetBarValue(f.health, value, interp)
+    end
+    if ns.UpdateHealthTrails then ns.UpdateHealthTrails(f, top, value) end
 
     local status
     if isOffline(unit) then
@@ -387,6 +459,7 @@ function ns.UpdateHealth(f)
         f.healthText:Show()
         setHealthText(f.healthText, textModeFor(f), unit, hp, maxhp)
     end
+    if ns.UpdateHealthFX then ns.UpdateHealthFX(f) end
 end
 
 local function powerColor(unit)
@@ -400,6 +473,7 @@ function ns.UpdatePower(f)
     if not f.power:IsShown() then return end
     local unit = f.unit
     if previewing(f) then
+        f.power.ezTop = nil
         f.power:SetMinMaxValues(0, 1)
         f.power:SetValue(0.55)
         f.power:SetStatusBarColor(0.31, 0.45, 0.85)
@@ -413,8 +487,11 @@ function ns.UpdatePower(f)
     f.power.bg:SetVertexColor(r * 0.22, g * 0.22, b * 0.22, 0.9)
     local pw, maxpw = Raw(UnitPower, unit), Raw(UnitPowerMax, unit)
     if not IsSecret(maxpw) and (type(maxpw) ~= "number" or maxpw <= 0) then maxpw = 1 end
-    pcall(f.power.SetMinMaxValues, f.power, 0, maxpw)
-    pcall(f.power.SetValue, f.power, pw or 0)
+    if not ns.FillBarFromPercent(f.power, ns.PowerPercent(unit, Raw(UnitPowerType, unit))) then
+        f.power.ezTop = nil
+        pcall(f.power.SetMinMaxValues, f.power, 0, maxpw)
+        pcall(f.power.SetValue, f.power, pw or 0)
+    end
     if f.powerText then
         if isDead(unit) then
             f.powerText:SetText("")
@@ -514,14 +591,36 @@ function ns.UpdateIcons(f)
     end
 end
 
+-- Secret threat status: the client still says (as a secret boolean) whether
+-- `who` is tanking `mob`, and picks the border colour for us without a comparison.
+local function secretThreatBorder(f, who, mob)
+    local fold = C_CurveUtil and C_CurveUtil.EvaluateColorValueFromBoolean
+    if type(fold) ~= "function" or type(UnitDetailedThreatSituation) ~= "function" then return false end
+    local ok, isTanking = pcall(UnitDetailedThreatSituation, who, mob)
+    if not ok or type(isTanking) ~= "boolean" then return false end
+    local hot, cold = ns.Style.threat[3], ns.Style.border
+    return pcall(function()
+        f:SetBackdropBorderColor(fold(isTanking, hot[1], cold[1]), fold(isTanking, hot[2], cold[2]),
+            fold(isTanking, hot[3], cold[3]), 1)
+    end)
+end
+
 function ns.UpdateThreat(f)
-    local status
+    local status, who, mob
     if ns.db.threatBorder and unitExists(f) then
         if f.unit == "target" or f.unit == "focus" or f.unit == "targettarget" then
-            if Plain(UnitCanAttack, "player", f.unit) then status = Plain(UnitThreatSituation, "player", f.unit) end
+            if Plain(UnitCanAttack, "player", f.unit) then
+                status, who, mob = Raw(UnitThreatSituation, "player", f.unit), "player", f.unit
+            end
         else
-            status = Plain(UnitThreatSituation, f.unit)
+            status = Raw(UnitThreatSituation, f.unit)
+            -- secret: judged against my target only
+            if Plain(UnitCanAttack, "player", "target") then who, mob = f.unit, "target" end
         end
+    end
+    if IsSecret(status) then
+        if who and secretThreatBorder(f, who, mob) then return end
+        status = nil
     end
     local c = (type(status) == "number" and status > 0) and ns.Style.threat[status]
     if c then
@@ -531,6 +630,8 @@ function ns.UpdateThreat(f)
     end
 end
 
+-- Party fade by range. The in-range answer may be secret: the client applies it
+-- through SetAlphaFromBoolean, so it is never compared here.
 function ns.UpdateRange(f)
     if f.sizeKey ~= "party" then return end
     if not ns.db.rangeFade or previewing(f) or not unitExists(f) then
@@ -539,10 +640,10 @@ function ns.UpdateRange(f)
     end
     local ok, inRange, checked = pcall(UnitInRange, f.unit)
     if not ok then f:SetAlpha(1) return end
-    if IsSecret(inRange) or IsSecret(checked) then
-        if f.SetAlphaFromBoolean and IsSecret(inRange) then pcall(f.SetAlphaFromBoolean, f, inRange, 1, 0.45) end
-        return
-    end
+    -- not checked (plain false): the client can't tell, so no fading
+    if not IsSecret(checked) and checked == false then f:SetAlpha(1) return end
+    if f.SetAlphaFromBoolean and pcall(f.SetAlphaFromBoolean, f, inRange, 1, 0.45) then return end
+    if IsSecret(inRange) then return end
     f:SetAlpha((checked and not inRange) and 0.45 or 1)
 end
 
@@ -550,6 +651,8 @@ end
 function ns.UpdateFrame(f)
     if not f or not ns.db then return end
     if not unitExists(f) and not f.preview then return end
+    -- shown, new unit or settings change: trails start at the current health
+    if f.trails then f.trails.forceSnap = true end
     ns.UpdateInfo(f)
     ns.UpdateHealthColor(f)
     ns.UpdateHealth(f)
