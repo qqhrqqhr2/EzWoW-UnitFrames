@@ -1,15 +1,19 @@
-# v1.0.1
+# v1.0.2
 
 ### 한국어
-- 전투 중에도 내 캐릭터·대상의 버프와 디버프가 표시되도록 고쳤고, 한 줄로 정리했습니다.
-- 파티원 체력바 아래에 버프 줄을 추가했습니다.
-- 체력바 효과를 추가했습니다: 광택, 전투 중 맥동, 낮은 체력 경고, 맞을 때 빨간 잔상과 번쩍임, 회복 때 초록 잔상.
-- 이름표에 내가 건 디버프를 전투 중에도 표시합니다.
-- 전투 중 체력·마나 바와 시전바에서 나던 오류를 수정했습니다.
+- 대상·주시 대상 시전바와 이름표에 차단 가능한 주문을 알리는 차단 경고(소리 포함)를 추가했습니다.
+- 아군 이름표 모양(이름만, 이름 + 얇은 체력바), 던전 안에서 아군 이름표 숨기기, 이름표 겹쳐 표시 설정을 추가했습니다.
+- 주시 대상 버프·디버프를 표시하고, 내가 건 효과를 크게 보여 주는 설정을 추가했습니다.
+- 파티창 가로 배열과 예상 치유량 표시 설정을 추가했습니다.
+- 잠긴 상태에서도 Ctrl+드래그로 프레임을 옮기고 Ctrl+휠로 프레임마다 크기를 바꿀 수 있습니다.
+- 던전에서 파티 프레임의 툴팁 정보가 제대로 나오지 않던 문제를 수정했습니다.
+- 툴팁 아래의 애드온 이름 표시를 작은 회색 글자로 통일했습니다.
 
 ### English
-- Player and target buffs and debuffs now show in combat, in one tidy layout.
-- New buff row under each party member.
-- New health bar effects: gloss, combat pulse, low-health warning, a red trail and flash when hit, a green trail when healed.
-- Your debuffs on nameplates now show in combat.
-- Fixed errors from health, power and cast bars in combat.
+- Added an interrupt warning (with sound) for interruptible casts on the target/focus cast bars and nameplates.
+- Added friendly nameplate styles (name only, name + thin health bar), an option to hide friendly plates in instances, and overlapping plates.
+- Focus buffs/debuffs are now shown, with an option to show auras you cast larger.
+- Added options for a side-by-side party layout and incoming heals.
+- Even when locked, Ctrl+drag moves a frame and Ctrl+mouse wheel resizes it.
+- Fixed tooltip info on party frames inside dungeons.
+- The addon name at the bottom of tooltips is now small gray text.
