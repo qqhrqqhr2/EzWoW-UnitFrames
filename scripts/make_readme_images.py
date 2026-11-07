@@ -76,7 +76,7 @@ def css(c, alpha=None, mul=1.0):
 # right of the target) with tighter spacing so the frames stay readable.
 SCENE_POS = {
     "player": (-160, -170), "target": (190, -170), "targettarget": (420, -150),
-    "focus": (-400, -60), "pet": (-420, -175), "party": (-430, 110),
+    "focus": (-190, 40), "pet": (-420, -175), "party": (-470, 95),
 }
 
 # PowerBarColor / FACTION_BAR_COLORS / class colours of the client
@@ -94,13 +94,21 @@ DEFAULT_DEBUFF = (0.8, 0.1, 0.1)
 BUFF_BORDER = (0.2, 0.25, 0.3)
 THREAT_2 = (1.0, 0.6, 0.0)             # ns.Style.threat[2]
 PLATE_THREAT_2 = (1.0, 0.5, 0.1)       # Nameplates THREAT_DPS[2]
+HEAL_MINE = (0.35, 1.0, 0.45, 0.55)    # UnitButton.lua heal prediction
+HEAL_OTHER = (0.35, 0.85, 1.0, 0.40)
+LOSS_COLOR = (0.85, 0.15, 0.15, 0.9)   # HealthEffects.lua hit trail
+# Auras.lua
+TARGET_COLUMNS, AURA_GAP, BIG_FACTOR = 8, 3, 1.4
+PARTY_SIZE, PARTY_GAP = 20, 2
+PARTY_BUFF_SIZE, PARTY_BUFF_BIG, PARTY_BIG_LINES = 16, 18, 2
+PARTY_FRAME_GAP = 10                   # Frames.lua PARTY_GAP
 
 # ---------------------------------------------------------------------------
 # Texts (scene names are made up; UI strings come from Core/Locales.lua)
 # ---------------------------------------------------------------------------
 T = {
     "ko": {
-        "lead": "내 캐릭터·대상·대상의 대상·주시 대상·소환수·파티 프레임과 적 이름표를 EzWoW 스타일로",
+        "lead": "내 캐릭터·대상·대상의 대상·주시 대상·소환수·파티 프레임과 적·아군 이름표를 EzWoW 스타일로",
         "me": "이끼발톱", "target": "덤불숲 강도", "focus": "덤불숲 주술사", "boar": "가시등 멧돼지",
         "party": ["은빛방패", "잿빛서리", "들꽃노래", "검은송곳"],
         "castTarget": "어둠의 화살", "castFocus": "치유의 물결",
@@ -111,28 +119,31 @@ T = {
             ("내 버프·디버프", "디버프 먼저, 버프는 다음 줄. 내가 건 것은 금색 테두리."),
             ("대상", "적대 대상은 산호색 선. 레벨(난이도 색)·정예 표시, 공격대 징표."),
             ("시전바", "호박색 시전, 하늘색 정신 집중. 차단할 수 없는 주문은 회색 + 방패, 차단되면 \"차단됨\"."),
-            ("대상 버프·디버프", "디버프 먼저(해제 종류 색 테두리), 내가 건 것은 금색. 내 디버프만 보기 옵션."),
+            ("대상 버프·디버프", "내가 건 효과는 1.4배 크기로 첫 줄(금색 테두리), 다른 디버프(해제 종류 색 테두리)와 버프는 다음 줄. 내 디버프만 보기 옵션."),
             ("대상의 대상", "대상이 노리는 상대의 작은 체력바."),
-            ("주시 대상", "시전바 포함. 그림은 차단할 수 없는 시전(회색 + 방패)."),
+            ("주시 대상", "대상처럼 시전바는 위, 버프·디버프는 아래(내가 건 것은 크게). 그림은 차단할 수 없는 시전(회색 + 방패)."),
             ("소환수", "소환수가 있을 때 나타납니다. 그림은 잠금 해제(이동) 중의 미리보기 모양."),
-            ("파티", "파티장 아이콘, 디버프 4개, 내가 해제할 수 있는 디버프는 체력바 테두리 색, 사거리 밖 파티원은 흐리게."),
+            ("파티", "파티장 아이콘, 오른쪽에 디버프 4개, 아래에 버프 줄(내가 건 버프는 크게), 내가 해제할 수 있는 디버프는 체력바 테두리 색, 사거리 밖 파티원은 흐리게. 가로 배열 옵션."),
             ("퀘스트 몹 표시", "퀘스트 목표인 적의 이름표 위에 \"!\" 표시."),
-            ("대상 이름표", "테두리 강조, 위협 색(딜러·탱커 기준), 내가 건 디버프, 시전바, 공격대 징표. 대상이 아닌 이름표는 흐리게."),
+            ("대상 이름표", "테두리 강조, 위협 색(딜러·탱커 기준), 내가 건 디버프, 시전바, 공격대 징표. 대상이 아닌 이름표는 흐리게. 차단할 수 있는 시전은 깜박이는 테두리와 \"차단!\"(내 차단 기술이 재사용 대기 중이면 보라색)."),
+            ("체력바 효과", "광택과 가장자리 불꽃, 전투 중 맥동, 낮은 체력 경고. 맞으면 빨간 잔상과 번쩍임, 회복되면 초록 잔상."),
+            ("예상 치유량", "들어오는 치유가 체력바 뒤로 이어집니다. 내 치유는 초록, 다른 사람의 치유는 하늘색."),
+            ("아군 이름표", "기본은 이름만: 플레이어는 직업 색, NPC는 관계 색, 파티원은 조금 크게. 이름 + 얇은 체력바, 기본 모양도 고를 수 있습니다. 던전 안에서는 게임 설정(이름만·숨기기)만 씁니다."),
         ],
         "sLead": "/ezuf · 사용할 프레임, 표시, 이름표, 체력 글자, 크기·위치",
         "sTitle": "설정창",
         "sNotes": [
             ("사용할 프레임", "내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티를 각각 켜고 끕니다."),
-            ("표시", "직업 색, 초상화, 시전바, 버프·디버프, 연계 점수, 드루이드 마나, 파티 버프·디버프·사거리, 위협 테두리, 기본 프레임 숨기기, 기력 틱·마나 5초 규칙, 체력바·피격·회복 효과."),
-            ("이름표", "EzWoW 이름표, 시전바, 내 디버프, 위협 색(탱커 기준), 대상 아닌 이름표 흐리게, 퀘스트 몹 표시, 이름표 크기 70~160%."),
+            ("표시", "직업 색, 초상화, 시전바, 버프·디버프, 연계 점수, 드루이드 마나, 파티 버프·디버프·사거리, 위협 테두리, 기본 프레임 숨기기, 기력 틱·마나 5초 규칙, 체력바·피격·회복 효과, 예상 치유량, 내가 건 효과 크게, 파티창 가로 배열."),
+            ("이름표", "EzWoW 이름표, 시전바, 내 디버프, 위협 색(탱커 기준), 대상 아닌 이름표 흐리게, 퀘스트 몹 표시, 차단 경고(이름표·대상·주시 시전바, 대상·주시만, 소리), 아군 이름표(기본 모양 · 이름만 · 이름 + 얇은 체력바, 던전 안에서 숨기기), 이름표 크기 70~160%."),
             ("체력 글자", "큰 프레임 · 작은 프레임 · 파티 각각: 현재 · %, 현재 / 최대, 현재, %, 부족량, 표시 안 함."),
-            ("크기·위치", "프레임 크기 60~160%, 잠금 해제 후 끌어서 이동(전투 시작 시 자동 잠금), 위치 초기화, 언어."),
+            ("크기·위치", "프레임 크기 60~160%, 잠금 해제 후 끌어서 이동(전투 시작 시 자동 잠금), 위치 초기화, 언어. 잠긴 상태에서도 Ctrl + 끌기로 이동, Ctrl + 휠로 프레임마다 크기 50~200%(전투 중 제외)."),
         ],
         "sFoot": "애드온 코드의 창 크기·좌표·색상·문구로 재현한 예시 화면입니다. 체크 상태는 기본값입니다.",
         "foot": "애드온 코드의 프레임 크기·색상·문구로 재현한 예시 화면입니다. 배치는 기본 위치와 같은 순서로 두고 간격만 좁혔습니다. 초상화·아이콘 그림은 단순화했고, 이름은 지어낸 예시입니다.",
     },
     "en": {
-        "lead": "Player, target, target of target, focus, pet and party frames plus enemy nameplates, in EzWoW style",
+        "lead": "Player, target, target of target, focus, pet and party frames plus enemy and friendly nameplates, in EzWoW style",
         "me": "Mossclaw", "target": "Thicket Bandit", "focus": "Thicket Shaman", "boar": "Thornback Boar",
         "party": ["Silvershield", "Ashfrost", "Wildsong", "Darkfang"],
         "castTarget": "Shadow Bolt", "castFocus": "Healing Wave",
@@ -143,22 +154,25 @@ T = {
             ("Your buffs & debuffs", "Debuffs first, buffs on the next row. Yours have a gold border."),
             ("Target", "Coral line for hostile units. Level (difficulty colour), elite tag, raid marker."),
             ("Cast bar", "Amber casts, light blue channels. Uninterruptible spells are grey with a shield; \"Interrupted\" on kicks."),
-            ("Target buffs & debuffs", "Debuffs first (bordered by dispel type), yours in gold. Option to show only yours."),
+            ("Target buffs & debuffs", "Yours first at 1.4x size (gold border), then other debuffs (bordered by dispel type) and buffs on the next rows. Option to show only your debuffs."),
             ("Target of target", "A small health bar of whoever your target is attacking."),
-            ("Focus", "With its own cast bar, shown here with an uninterruptible cast (grey + shield)."),
+            ("Focus", "Like the target: cast bar above, buffs and debuffs below (yours larger). Shown with an uninterruptible cast (grey + shield)."),
             ("Pet", "Shown when you have a pet. Pictured in its unlocked (move) preview look."),
-            ("Party", "Leader icon, up to 4 debuffs, a coloured health border for debuffs you can dispel, faded out-of-range members."),
+            ("Party", "Leader icon, 4 debuffs on the right, a buff row below (yours larger), a coloured health border for debuffs you can dispel, faded out-of-range members. Side-by-side option."),
             ("Quest mob marker", "A \"!\" above the nameplates of enemies you need for a quest."),
-            ("Target nameplate", "Outlined, threat colours (DPS or tank view), your debuffs, cast bar, raid marker. Other plates fade."),
+            ("Target nameplate", "Outlined, threat colours (DPS or tank view), your debuffs, cast bar, raid marker. Other plates fade. Interruptible casts get a pulsing rim and \"Kick!\" (purple while your interrupt is on cooldown)."),
+            ("Health bar effects", "Gloss and an edge spark, a combat pulse, a low-health warning. A red trail and flash when hit, a green trail when healed."),
+            ("Incoming heals", "Heals on the way continue the health fill: yours in green, others' in light blue."),
+            ("Friendly nameplates", "Name only by default: class colour for players, reaction colour for NPCs, party members a little larger. Or name + thin health bar, or the default look. Inside instances only the game's own settings are used (names only, hide)."),
         ],
         "sLead": "/ezuf · frames, display, nameplates, health text, size & position",
         "sTitle": "Settings",
         "sNotes": [
             ("Frames", "Turn player, target, target of target, focus, pet and party on or off one by one."),
-            ("Display", "Class colours, portraits, cast bars, buffs and debuffs, combo points, druid mana, party buffs, debuffs and range, threat border, hide default frames, energy ticks and mana 5-second rule, health bar, hit and heal effects."),
-            ("Nameplates", "EzWoW plates, cast bars, your debuffs, threat colours (tank view), fade non-target plates, quest mob marker, plate size 70–160%."),
+            ("Display", "Class colours, portraits, cast bars, buffs and debuffs, combo points, druid mana, party buffs, debuffs and range, threat border, hide default frames, energy ticks and mana 5-second rule, health bar, hit and heal effects, incoming heals, larger auras you cast, party side by side."),
+            ("Nameplates", "EzWoW plates, cast bars, your debuffs, threat colours (tank view), fade non-target plates, quest mob marker, interrupt warning (plate, target and focus cast bars; target & focus only; sound), friendly plates (default, name only, name + thin bar; hide in instances), plate size 70–160%."),
             ("Health text", "For big frames, small frames and party: current · %, current / max, current, %, deficit, hidden."),
-            ("Size & position", "Frame size 60–160%, unlock to drag (locks again in combat), reset positions, language."),
+            ("Size & position", "Frame size 60–160%, unlock to drag (locks again in combat), reset positions, language. Even when locked, Ctrl + drag moves a frame and Ctrl + mouse wheel sizes it 50–200% (not in combat)."),
         ],
         "sFoot": "Mock-up rebuilt from the window size, coordinates, colours and strings in the addon code. Check boxes show the defaults.",
         "foot": "Mock-ups rebuilt from the frame sizes, colours and strings in the addon code. Frames keep the default arrangement with tighter spacing. Portraits and icons are simplified; all names are made up.",
@@ -222,12 +236,19 @@ def text(x, y, s, size, color="#fff", style="", anchor="left", h=None):
             f'transform:{tr};{OUTLINE}{style}">{s}</div>')
 
 
-def bar(x, y, w, h, frac, color, bg=None, shine=True, extra=""):
+def bar(x, y, w, h, frac, color, bg=None, shine=True, extra="", after=()):
+    """after: (fraction, rgba) segments continuing the fill (heal prediction, hit trail)."""
     bgc = bg or css(color, 0.9, 0.22)
     fill = f'<div class="abs" style="left:0;top:0;bottom:0;width:{frac * 100:.1f}%;background:{css(color, 1)}">'
     if shine:
         fill += '<div class="abs" style="inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.16),rgba(255,255,255,0))"></div>'
     fill += "</div>"
+    at = frac
+    for seg, col in after:
+        seg = min(seg, 1 - at)
+        fill += (f'<div class="abs" style="left:{at * 100:.1f}%;top:0;bottom:0;width:{seg * 100:.1f}%;'
+                 f'background:{css(col[:3], col[3])}"></div>')
+        at += seg
     return box(x, y, w, h, f"background:{bgc};overflow:visible", fill + extra)
 
 
@@ -243,6 +264,8 @@ ICONS = {
     "frost": ("#14283a", '<path d="M50 12 V88 M17 31 L83 69 M17 69 L83 31" stroke="#bfe6ff" stroke-width="9" stroke-linecap="round"/>'),
     "shadow": ("#1e1430", '<circle cx="50" cy="50" r="28" fill="#8a5ad8"/><circle cx="50" cy="50" r="14" fill="#2a1840"/>'),
     "wave": ("#10304a", '<path d="M10 60 C25 35 40 35 50 55 C60 75 75 75 90 50" stroke="#7fd0ff" stroke-width="12" fill="none" stroke-linecap="round"/>'),
+    "fort": ("#1c2a44", '<path d="M50 12 L60 40 L88 50 L60 60 L50 88 L40 60 L12 50 L40 40 Z" fill="#f2f6ff"/><circle cx="50" cy="50" r="10" fill="#9fc4ff"/>'),
+    "arcane": ("#241a44", '<circle cx="50" cy="50" r="30" fill="none" stroke="#b9a2ff" stroke-width="8"/><circle cx="50" cy="50" r="12" fill="#e2d8ff"/>'),
     "sunder": ("#2e2e2e", '<path d="M50 14 L80 26 C80 58 68 74 50 86 C32 74 20 58 20 26 Z" fill="#9a9a9a"/><path d="M50 20 L44 50 L56 52 L48 84" stroke="#2e2e2e" stroke-width="6" fill="none"/>'),
 }
 
@@ -326,7 +349,7 @@ def unit_frame(st, sizes, key, d):
         p.append(box(left, 1 + info, inner_w, 2, f"background:{css(d['accent'], 1)}"))
         top = 1 + info + 2
     hy = top
-    p.append(bar(left, hy, inner_w, size["health"], d["hp"], d["hpColor"]))
+    p.append(bar(left, hy, inner_w, size["health"], d["hp"], d["hpColor"], after=d.get("after", ())))
     if d.get("dispelGlow"):
         p.append(box(left - 1, hy - 1, inner_w + 2, size["health"] + 2, f"border:{px(2)} solid {css(d['dispelGlow'], 1)};z-index:3"))
     if size["power"] > 0:
@@ -363,9 +386,15 @@ def unit_frame(st, sizes, key, d):
     return body, W, H, style
 
 
-def castbar(x, y, w, h, frac, color, label, time, st, locked=False, small=False, icon="shadow"):
-    """Castbar status bar at (x,y) game px; icon frame h x h to its left (-2)."""
+def castbar(x, y, w, h, frac, color, label, time, st, locked=False, small=False, icon="shadow", kick=None):
+    """Castbar status bar at (x,y) game px; icon frame h x h to its left (-2).
+    kick = warning label: the interrupt warning rim (2 px + a 2 px halo, Castbar.lua) and label."""
     p = []
+    if kick:
+        k = st["kickReady"]
+        p.append(box(x - 4, y - 4, w + 8, h + 8, f"border:{px(2)} solid {css(k, .35)}"))
+        p.append(box(x - 2, y - 2, w + 4, h + 4, f"border:{px(2)} solid {css(k, 1)}"))
+        p.append(text(x + w + 7, y + h / 2, kick, 9 if h < 14 else 11, css(k, 1)))
     p.append(box(x - 2 - h, y, h, h, f"border:{px(1)} solid {css(st['border'])};background:#000",
                  f'<div class="abs" style="inset:0">{icon_svg(icon)}</div>'))
     fill = f'<div class="abs" style="left:0;top:0;bottom:0;width:{frac * 100:.1f}%;background:{css(color, 1)}"></div>'
@@ -398,7 +427,7 @@ def ui_page(lang, ctx):
     S = 1.4
     t, L, st, sizes = T[lang], ctx["L"][lang], ctx["style"], ctx["sizes"]
     pos = SCENE_POS
-    TOP, BOTTOM = 240, -290           # game y range of the scene
+    TOP, BOTTOM = 285, -335           # game y range of the scene
     LEFT, RIGHT = -540, 535
     gx0, gy0 = 48, 168                 # page px of the ground's top-left
     ox = gx0 + (-LEFT) * S             # page px of the screen centre
@@ -447,14 +476,19 @@ def ui_page(lang, ctx):
     # target with cast bar (above) and auras (below)
     tW, tH = place("big", *pos["target"], dict(id="target", portrait="bandit", portraitSide="RIGHT", accent=warning,
                    level="13", levelColor=DIFF_YELLOW, name=t["target"], hp=0.64, hpColor=HOSTILE, hpText="312 · 64%",
-                   pp=0.48, ppColor=MANA, ppText="208", raid=True, threat=THREAT_2))
+                   pp=0.48, ppColor=MANA, ppText="208", raid=True, threat=THREAT_2, after=[(0.08, LOSS_COLOR)]))
     parts.append(castbar(16 + 2, -4 - 16, tW - 18, 16, 0.62, st["castbar"], t["castTarget"], "1.1", st))
-    asz = (tW - 7 * 3) // 8
-    auras_t = [("moon", accent, None, 1, 40), ("claw", accent, None, 1, 65), ("fairy", DISPEL["Magic"], None, .85, None),
-               ("sunder", DEFAULT_DEBUFF, "3", .85, None)]
-    for i, (kind, border, cnt, al, sw) in enumerate(auras_t):
-        parts.append(aura(i * (asz + 3), tH + 4, asz, kind, border, cnt, al, sw))
-    parts.append(aura(0, tH + 4 + asz + 3, asz, "shadow", BUFF_BORDER))
+    # Auras.lua "big" shape: my debuffs (x1.4), other debuffs, my buffs (x1.4), other buffs; each kind on a new row
+    asz = (tW - (TARGET_COLUMNS - 1) * AURA_GAP) // TARGET_COLUMNS
+    big = round(asz * BIG_FACTOR)
+    y = tH + 4
+    for i, (kind, sw) in enumerate([("moon", 40), ("claw", 65)]):
+        parts.append(aura(i * (big + AURA_GAP), y, big, kind, accent, None, 1, sw))
+    y += big + AURA_GAP
+    for i, (kind, border, cnt) in enumerate([("fairy", DISPEL["Magic"], None), ("sunder", DEFAULT_DEBUFF, "3")]):
+        parts.append(aura(i * (asz + AURA_GAP), y, asz, kind, border, cnt, .85))
+    y += asz + AURA_GAP
+    parts.append(aura(0, y, asz, "shadow", BUFF_BORDER))
     close()
 
     # target of target (me)
@@ -464,7 +498,11 @@ def ui_page(lang, ctx):
     # focus: enemy shaman with an uninterruptible cast (below the frame)
     fW, fH = place("focus", *pos["focus"], dict(id="focus", accent=warning, level="14+", levelColor=DIFF_YELLOW, name=t["focus"],
                    hp=0.92, hpColor=HOSTILE, hpText="398 · 92%", pp=0.7, ppColor=MANA))
-    parts.append(castbar(16 + 2, fH + 4, fW - 18, 16, 0.35, st["castLocked"], t["castFocus"], "1.9", st, locked=True, icon="wave"))
+    parts.append(castbar(16 + 2, -4 - 16, fW - 18, 16, 0.35, st["castLocked"], t["castFocus"], "1.9", st, locked=True, icon="wave"))
+    fsz = (fW - (TARGET_COLUMNS - 1) * AURA_GAP) // TARGET_COLUMNS
+    fbig = round(fsz * BIG_FACTOR)
+    parts.append(aura(0, fH + 4, fbig, "moon", accent, None, 1, 25))
+    parts.append(aura(0, fH + 4 + fbig + AURA_GAP, fsz, "wave", BUFF_BORDER))
     close()
 
     # pet: preview look (edit mode)
@@ -475,22 +513,37 @@ def ui_page(lang, ctx):
     # party (holder top-left at centre - size/2)
     psz = sizes["party"]
     ph = frame_height(psz)
-    holder_h = 4 * ph + 3 * 10
+    # ns.PartyBuffRow() with bigMyAuras: two lines of 18 px + gap, plus 3
+    buff_row = PARTY_BIG_LINES * PARTY_BUFF_BIG + (PARTY_BIG_LINES - 1) * PARTY_GAP + 3
+    step = ph + PARTY_FRAME_GAP + buff_row
+    holder_h = 4 * ph + 3 * (PARTY_FRAME_GAP + buff_row)
     hx, hy = pos["party"][0] - psz["w"] / 2, pos["party"][1] + holder_h / 2
     members = [
-        dict(cls="PALADIN", hp=1.0, pp=0.86, pc=MANA, lvl="13", leader=True, deb=[]),
-        dict(cls="MAGE", hp=0.63, pp=0.42, pc=MANA, lvl="12", deb=[("poison", DISPEL["Poison"], "2")], glow=DISPEL["Poison"]),
-        dict(cls="PRIEST", hp=0.88, pp=0.57, pc=MANA, lvl="12", deb=[("frost", DISPEL["Magic"], None)]),
-        dict(cls="ROGUE", hp=1.0, pp=0.9, pc=ENERGY, lvl="11", deb=[], alpha=0.45),
+        dict(cls="PALADIN", hp=1.0, pp=0.86, pc=MANA, lvl="13", leader=True, deb=[], buffs=["fort", "arcane"]),
+        dict(cls="MAGE", hp=0.63, pp=0.42, pc=MANA, lvl="12", deb=[("poison", DISPEL["Poison"], "2")], glow=DISPEL["Poison"],
+             after=[(0.12, HEAL_MINE), (0.08, HEAL_OTHER)], buffs=["fort"]),
+        dict(cls="PRIEST", hp=0.88, pp=0.57, pc=MANA, lvl="12", deb=[("frost", DISPEL["Magic"], None)], buffs=["fort", "arcane"]),
+        dict(cls="ROGUE", hp=1.0, pp=0.9, pc=ENERGY, lvl="11", deb=[], alpha=0.45, buffs=["fort"]),
     ]
+    party_y = []
     for i, m in enumerate(members):
-        cy = hy - i * (ph + 10) - ph / 2
+        cy = hy - i * step - ph / 2
+        party_y.append(cy)
         cx = hx + psz["w"] / 2
         place("party", cx, cy, dict(id=f"party{i + 1}", accent=accent, level=m["lvl"], levelColor=PLAYER_LEVEL, name=t["party"][i],
                                     hp=m["hp"], hpColor=CLASS[m["cls"]], hpText=f"{round(m['hp'] * 100)}%", pp=m["pp"], ppColor=m["pc"],
-                                    leader=m.get("leader"), dispelGlow=m.get("glow"), alpha=m.get("alpha", 1)))
+                                    leader=m.get("leader"), dispelGlow=m.get("glow"), alpha=m.get("alpha", 1),
+                                    after=m.get("after", ())))
         for j, (kind, border, cnt) in enumerate(m["deb"]):
-            parts.append(aura(psz["w"] + 4 + j * 22, (ph - 20) / 2, 20, kind, border, cnt, .85))
+            parts.append(aura(psz["w"] + 4 + j * (PARTY_SIZE + PARTY_GAP), (ph - PARTY_SIZE) / 2, PARTY_SIZE, kind, border, cnt, .85))
+        # buff row 3 below the frame: my buffs (18, gold) first, then the others (16)
+        bx = 0
+        for kind in ["wild"]:
+            parts.append(aura(bx, ph + 3, PARTY_BUFF_BIG, kind, accent, alpha=m.get("alpha", 1)))
+            bx += PARTY_BUFF_BIG + PARTY_GAP
+        for kind in m["buffs"]:
+            parts.append(aura(bx, ph + 3, PARTY_BUFF_SIZE, kind, BUFF_BORDER, alpha=m.get("alpha", 1)))
+            bx += PARTY_BUFF_SIZE + PARTY_GAP
         close()
 
     # nameplates (Modules/Nameplates.lua): 120 x 10
@@ -513,7 +566,7 @@ def ui_page(lang, ctx):
         if target:
             q.append(f'<div class="abs" style="left:{px(Wp + 4)};top:{px(Hp / 2 - 9)}">{skull(18)}</div>')
         if cast:
-            q.append(castbar(11, Hp + 3, Wp - 11, 9, cast[1], st["castbar"], cast[0], "", st, small=True))
+            q.append(castbar(11, Hp + 3, Wp - 11, 9, cast[1], st["castbar"], cast[0], "", st, small=True, kick=L["kickLabel"]))
         parts.append(f'<div class="abs" style="left:{x0:.1f}px;top:{y0:.1f}px;width:{px(Wp)};height:{px(Hp)};opacity:{alpha}">{"".join(q)}</div>')
         if quest:  # on the default plate itself, not faded
             off = (18 + 4) if debuffs else 2
@@ -526,6 +579,10 @@ def ui_page(lang, ctx):
     plate(200, 90, t["target"], "13", DIFF_YELLOW, PLATE_THREAT_2, 0.64, 1, target=True,
           debuffs=[("moon", None, 40), ("claw", None, 65)], cast=(t["castTarget"], 0.62))
 
+    # friendly nameplate, default "name only": class-coloured name, party member +2 size, no bar
+    parts.append(f'<div class="t" style="left:{X(140):.1f}px;top:{Y(226):.1f}px;transform:translate(-50%,-50%);'
+                 f'font-size:{px(12)};color:{css(CLASS["PALADIN"], 1)};{OUTLINE}">{t["party"][0]}</div>')
+
     # callouts (page px)
     def c(x, y):
         return (X(x), Y(y))
@@ -534,21 +591,24 @@ def ui_page(lang, ctx):
         c(10, -185),     # 2 energy spark
         c(10, -222),     # 3 combo / mana
         c(-180, -240),   # 4 player auras
-        c(352, -185),    # 5 target
+        c(352, -190),    # 5 target
         c(120, -105),    # 6 target castbar
         c(215, -218),    # 7 target auras
         c(420, -120),    # 8 tot
-        c(-290, -50),    # 9 focus
+        c(-302, 40),     # 9 focus
         c(-420, -215),   # 10 pet
-        c(-320, 195),    # 11 party
+        c(-318, 250),    # 11 party
         c(-60, 178),     # 12 quest
         c(310, 90),      # 13 target plate
+        c(292, -214),    # 14 hit trail on the target (below its health bar)
+        c(-534, party_y[1]),  # 15 heal prediction on a party member
+        c(205, 226),     # 16 friendly nameplate
     ]
     for i, (x, y) in enumerate(calls, 1):
         parts.append(f'<div class="call" style="left:{x - 15:.0f}px;top:{y - 15:.0f}px">{i}</div>')
 
     notes_top = gy0 + (TOP - BOTTOM) * S + 30
-    half = 7
+    half = 8
 
     def note_html(start, lst):
         return "".join(f'<div class="note"><span class="n">{start + i}</span><div><b>{a}</b> — {b}</div></div>' for i, (a, b) in enumerate(lst))
@@ -561,13 +621,13 @@ def ui_page(lang, ctx):
 
 
 # ---------------------------------------------------------------------------
-# Settings window (UI/OptionsWindow.lua, 460 x 908)
+# Settings window (UI/OptionsWindow.lua, 460 x 1012)
 # ---------------------------------------------------------------------------
 def settings_page(lang, ctx):
     global S
     S = 1.22
     t, L, st, dflt = T[lang], ctx["L"][lang], ctx["style"], ctx["defaults"]
-    W, H = 460, 908
+    W, H = 460, 1012
     ox, oy = 60, 160
     p = []
     accent_c = css(st["accent"])
@@ -611,17 +671,22 @@ def settings_page(lang, ctx):
     L1, L2 = 20, 236
     rows = [("classColor", "portraits"), ("targetCastbar", "focusCastbar"), ("targetAuras", "onlyMyDebuffs"),
             ("comboPoints", "druidMana"), ("partyDebuffs", "rangeFade"), ("threatBorder", "partyInRaid"),
-            ("hideBlizzard", "playerAuras"), ("powerTicks", "healthFX"), ("hitFX", "partyBuffs")]
+            ("hideBlizzard", "playerAuras"), ("powerTicks", "healthFX"), ("hitFX", "partyBuffs"),
+            ("healPrediction", "bigMyAuras"), ("partyHorizontal", None)]
     for r, (a, b) in enumerate(rows):
         check(L1, 184 + r * 26, L["opt_" + a], dflt[a])
         if b:
             check(L2, 184 + r * 26, L["opt_" + b], dflt[b])
-    section("secPlates", 430)
-    prow = [("nameplates", "plateCastbar"), ("plateDebuffs", "plateThreat"), ("plateTankMode", "plateFadeOthers"), ("plateQuest", None)]
+    section("secPlates", 482)
+    prow = [("nameplates", "plateCastbar"), ("plateDebuffs", "plateThreat"), ("plateTankMode", "plateFadeOthers"), ("plateQuest", "kickWarn"),
+            ("kickTargetOnly", "kickSound")]
     for r, (a, b) in enumerate(prow):
-        check(L1, 454 + r * 26, L["opt_" + a], dflt[a])
+        check(L1, 506 + r * 26, L["opt_" + a], dflt[a])
         if b:
-            check(L2, 454 + r * 26, L["opt_" + b], dflt[b])
+            check(L2, 506 + r * 26, L["opt_" + b], dflt[b])
+    # friendly plates picker (default "name") and the instance option
+    p.append(btn(L1, 637, 205, 24, f'{L["friendlyPlates"]}: {L["friendly_" + ctx["friendlyMode"]]} ▼', size=11))
+    check(L2, 636, L["opt_friendlyHideInstance"], dflt["friendlyHideInstance"])
 
     def stepper(label, y_label, y_btn, value):
         p.append(f'<div class="t" style="left:{px(24)};top:{px(y_label)};font-size:{px(12)};color:{body_c};{OUTLINE}">'
@@ -629,25 +694,25 @@ def settings_page(lang, ctx):
         p.append(btn(150, y_btn, 27, 27, "-", size=16))
         p.append(text(150 + 27 + 4 + 26, y_btn + 13.5, value, 12, body_c, anchor="center"))
         p.append(btn(150 + 27 + 60, y_btn, 27, 27, "+", size=16))
-    stepper(L["plateScale"], 568, 561, "100%")
-    section("secText", 596)
+    stepper(L["plateScale"], 672, 665, "100%")
+    section("secText", 700)
     for x, lk, mode in ((20, "textBig", "curpct"), (162, "textSmall", "percent"), (304, "textParty", "percent")):
-        p.append(f'<div class="t" style="left:{px(x + 2)};top:{px(622)};font-size:{px(11)};color:{muted_c};{OUTLINE}">'
+        p.append(f'<div class="t" style="left:{px(x + 2)};top:{px(726)};font-size:{px(11)};color:{muted_c};{OUTLINE}">'
                  f'<span class="fit" data-fit="{128 * S:.1f}" data-min="{8 * S:.1f}">{L[lk]}</span></div>')
-        p.append(btn(x, 638, 132, 26, L["text_" + mode] + " ▼", size=11))
-    section("secLayout", 680)
-    stepper(L["scale"], 714, 707, "100%")
-    p.append(btn(20, 744, 205, 32, L["unlock"], accent=True))
-    p.append(btn(235, 744, 205, 32, L["resetPos"]))
-    p.append(btn(20, 784, 205, 28, f'{L["language"]}: Auto ▼'))
-    p.append(btn(235, 784, 205, 28, L["donate"], accent=True))
-    p.append(f'<div class="abs" style="left:{px(22)};top:{px(824)};width:{px(416)};font-size:{px(10.5)};line-height:1.35;color:{muted_c};{OUTLINE}">{L["hint"]}</div>')
+        p.append(btn(x, 742, 132, 26, L["text_" + mode] + " ▼", size=11))
+    section("secLayout", 784)
+    stepper(L["scale"], 818, 811, "100%")
+    p.append(btn(20, 848, 205, 32, L["unlock"], accent=True))
+    p.append(btn(235, 848, 205, 32, L["resetPos"]))
+    p.append(btn(20, 888, 205, 28, f'{L["language"]}: Auto ▼'))
+    p.append(btn(235, 888, 205, 28, L["donate"], accent=True))
+    p.append(f'<div class="abs" style="left:{px(22)};top:{px(928)};width:{px(416)};font-size:{px(10.5)};line-height:1.35;color:{muted_c};{OUTLINE}">{L["hint"]}</div>')
     p.append(f'<div class="t" style="left:{px(W / 2)};top:{px(H - 18)};transform:translate(-50%,0);font-size:{px(10)};color:#808080">'
              f'{ctx["title"]}{" v" + ctx["version"] if ctx["version"] else ""}  ·  /ezuf</div>')
 
     win = (f'<div class="abs" style="left:{ox}px;top:{oy}px;width:{px(W)};height:{px(H)};background:{css(st["bgPrimary"])};'
            f'border:1px solid {css(st["border"])}">' + "".join(p) + "</div>")
-    spans = [(secs[0], secs[1]), (secs[1], secs[2]), (secs[2], secs[3]), (secs[3], secs[4]), (secs[4], 826)]
+    spans = [(secs[0], secs[1]), (secs[1], secs[2]), (secs[2], secs[3]), (secs[3], secs[4]), (secs[4], 952)]
     calls = "".join(f'<div class="call" style="left:{ox + W * S + 18:.0f}px;top:{oy + (a + b) / 2 * S - 15:.0f}px">{i}</div>'
                     for i, (a, b) in enumerate(spans, 1))
     notes = "".join(f'<div class="note"><span class="n">{i}</span><div><b>{a}</b> — {b}</div></div>' for i, (a, b) in enumerate(t["sNotes"], 1))
@@ -694,6 +759,7 @@ def main(root: Path):
         "sizes": parse_sizes(read(root, "Modules/UnitButton.lua")),
         "style": parse_style(init),
         "defaults": parse_defaults(init),
+        "friendlyMode": re.search(r'^\s*friendlyPlates\s*=\s*"(\w+)"', init, re.M).group(1),
         "L": {"ko": parse_locale(locales, "koKR"), "en": parse_locale(locales, "enUS")},
         "title": re.search(r'ns\.TITLE\s*=\s*"([^"]+)"', init).group(1),
         "version": parse_version(read(root, "EzWoW-UnitFrames.toc")),

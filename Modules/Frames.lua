@@ -298,13 +298,36 @@ local function layoutParty()
     local size = ns.SIZES.party
     local height = ns.FrameHeight(size)
     -- room for the buff row under each member
-    local gap = PARTY_GAP + ((ns.db.partyBuffs and ns.PARTY_BUFF_ROW) or 0)
-    for i = 1, 4 do
-        local f = ns.frames["party" .. i]
-        f:ClearAllPoints()
-        f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (height + gap))
+    local buffRow = (ns.db.partyBuffs and ns.PartyBuffRow and ns.PartyBuffRow()) or 0
+    if ns.db.partyHorizontal then
+        -- side by side; the debuffs sit above each frame (see Auras), buffs below
+        local step = size.w + PARTY_GAP
+        for i = 1, 4 do
+            local f = ns.frames["party" .. i]
+            f:ClearAllPoints()
+            f:SetPoint("TOPLEFT", holder, "TOPLEFT", (i - 1) * step, 0)
+        end
+        holder:SetSize(4 * size.w + 3 * PARTY_GAP, height + buffRow)
+    else
+        -- room for the buff row under each member
+        local gap = PARTY_GAP + buffRow
+        for i = 1, 4 do
+            local f = ns.frames["party" .. i]
+            f:ClearAllPoints()
+            f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (height + gap))
+        end
+        holder:SetSize(size.w, 4 * height + 3 * gap)
     end
-    holder:SetSize(size.w, 4 * height + 3 * gap)
+    for i = 1, 4 do
+        if ns.PlacePartyDebuffs then ns.PlacePartyDebuffs(ns.frames["party" .. i]) end
+    end
+end
+
+-- overall scale times the frame's own size (Ctrl + wheel)
+local FRAME_SCALE_MIN, FRAME_SCALE_MAX = 0.5, 2.0
+local function frameScale(key)
+    local own = tonumber(ns.db.frameScales and ns.db.frameScales[key]) or 1
+    return math.max(FRAME_SCALE_MIN, math.min(FRAME_SCALE_MAX, own))
 end
 
 -- Size, scale and position of everything. Protected: runs after combat if needed.
@@ -314,7 +337,7 @@ function ns.ApplyLayout()
         if ns.frames.player and ns.frames.player.LayoutExtras then ns.frames.player:LayoutExtras() end
         layoutParty()
         for key, root in pairs(ns.roots) do
-            root:SetScale(ns.db.scale)
+            root:SetScale(ns.db.scale * frameScale(key))
             applyPosition(key)
         end
         ns.RefreshAll()
@@ -324,7 +347,11 @@ end
 function ns.ResetPositions()
     ns.RunAfterCombat("reset", function()
         wipe(ns.db.positions)
-        for key in pairs(ns.roots) do applyPosition(key) end
+        if ns.db.frameScales then wipe(ns.db.frameScales) end
+        for key, root in pairs(ns.roots) do
+            root:SetScale(ns.db.scale * frameScale(key))
+            applyPosition(key)
+        end
     end)
 end
 
@@ -406,12 +433,100 @@ local function createMover(key, root)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
         GameTooltip:SetText(ns:L(key), a[1], a[2], a[3])
         GameTooltip:AddLine(ns:L("moverTip"), 0.85, 0.9, 0.94, true)
+        GameTooltip:AddDoubleLine(" ", "EzWoW - Unit Frames", 0, 0, 0, 0.5, 0.5, 0.5)
         GameTooltip:Show()
+        if _G.EzWoWTooltipTagSizer and _G.EzWoWTooltipTagSizer.Refit then pcall(_G.EzWoWTooltipTagSizer.Refit, GameTooltip) end
     end)
     mover:SetScript("OnLeave", function() GameTooltip:Hide() end)
     mover:Hide()
     root.mover = mover
 end
+
+-----------------------------------------------------------------------------
+-- Quick edit while locked: Ctrl + drag moves a frame, Ctrl + wheel resizes it.
+-- The wheel is only taken while Ctrl is held over a frame, so the camera zoom
+-- keeps working over the frames otherwise. Out of combat only.
+-----------------------------------------------------------------------------
+local quick = { hovered = nil, wheelOn = nil, moving = nil }
+local quickEvents = CreateFrame("Frame")
+
+local function rootKeyOf(f)
+    return (f.sizeKey == "party") and "party" or f.key
+end
+
+local function setWheel(f, on)
+    if not f or ns.InCombat() then return end
+    on = on and true or false
+    if quick.wheelOn == f and on then return end
+    pcall(f.EnableMouseWheel, f, on)
+    quick.wheelOn = on and f or nil
+end
+
+local function showSizeTip(f, key)
+    GameTooltip:SetOwner(f, "ANCHOR_TOP")
+    GameTooltip:SetText(ns:L("frameSize"):format(math.floor(frameScale(key) * 100 + 0.5)), 1, 1, 1)
+    GameTooltip:AddDoubleLine(" ", "EzWoW - Unit Frames", 0, 0, 0, 0.5, 0.5, 0.5)
+    GameTooltip:Show()
+    if _G.EzWoWTooltipTagSizer and _G.EzWoWTooltipTagSizer.Refit then pcall(_G.EzWoWTooltipTagSizer.Refit, GameTooltip) end
+end
+
+local function attachQuickEdit(f)
+    local key = rootKeyOf(f)
+    f:RegisterForDrag("LeftButton")
+    f:HookScript("OnDragStart", function()
+        if ns.InCombat() or not IsControlKeyDown() then return end
+        local root = ns.roots[key]
+        if not root then return end
+        root:StartMoving()
+        quick.moving = key
+    end)
+    f:HookScript("OnDragStop", function()
+        if quick.moving ~= key then return end
+        quick.moving = nil
+        local root = ns.roots[key]
+        if not root then return end
+        root:StopMovingOrSizing()
+        if not ns.InCombat() then savePosition(key) end
+    end)
+    f:HookScript("OnEnter", function(self)
+        quick.hovered = self
+        setWheel(self, IsControlKeyDown())
+    end)
+    f:HookScript("OnLeave", function(self)
+        if quick.hovered == self then quick.hovered = nil end
+        setWheel(self, false)
+    end)
+    f:SetScript("OnMouseWheel", function(self, delta)
+        if ns.InCombat() or not IsControlKeyDown() then return end
+        local root = ns.roots[key]
+        if not root then return end
+        local value = math.floor((frameScale(key) + (delta > 0 and 0.05 or -0.05)) * 100 + 0.5) / 100
+        ns.db.frameScales[key] = math.max(FRAME_SCALE_MIN, math.min(FRAME_SCALE_MAX, value))
+        if math.abs(ns.db.frameScales[key] - 1) < 0.001 then ns.db.frameScales[key] = nil end
+        root:SetScale(ns.db.scale * frameScale(key))
+        applyPosition(key)
+        showSizeTip(self, key)
+    end)
+end
+
+pcall(quickEvents.RegisterEvent, quickEvents, "MODIFIER_STATE_CHANGED")
+pcall(quickEvents.RegisterEvent, quickEvents, "PLAYER_REGEN_DISABLED")
+quickEvents:SetScript("OnEvent", function(_, event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        -- still allowed at this point; frames must not keep the wheel in combat
+        if quick.wheelOn then
+            pcall(quick.wheelOn.EnableMouseWheel, quick.wheelOn, false)
+            quick.wheelOn = nil
+        end
+        if quick.moving and ns.roots[quick.moving] then
+            ns.roots[quick.moving]:StopMovingOrSizing()
+            savePosition(quick.moving)
+            quick.moving = nil
+        end
+        return
+    end
+    if quick.hovered then setWheel(quick.hovered, IsControlKeyDown()) end
+end)
 
 function ns.SetLocked(locked)
     if ns.InCombat() then
@@ -506,7 +621,9 @@ function ns.BuildAllFrames()
     register(ns.CreateUnitButton("targettarget", "targettarget", "small", {}))
 
     local focus = ns.CreateUnitButton("focus", "focus", "focus", {})
-    ns.CreateCastbar(focus, false)
+    -- like the target: cast bar above, buffs and debuffs below
+    ns.CreateCastbar(focus, true)
+    ns.CreateTargetAuras(focus)
     register(focus)
 
     register(ns.CreateUnitButton("pet", "pet", "pet", {}))
@@ -524,6 +641,7 @@ function ns.BuildAllFrames()
         ns.roots[key] = ns.frames[key]
     end
     ns.roots.party = holder
+    for _, f in ipairs(ns.frameList) do attachQuickEdit(f) end
     for key, root in pairs(ns.roots) do createMover(key, root) end
 
     ns.ApplyLayout()
@@ -558,6 +676,7 @@ end
 local UNIT_EVENTS = {
     UNIT_HEALTH = function(f) ns.UpdateHealth(f) end,
     UNIT_MAXHEALTH = function(f) ns.UpdateHealth(f) end,
+    UNIT_HEAL_PREDICTION = function(f) ns.UpdateHealPrediction(f) end,
     UNIT_CONNECTION = function(f) ns.UpdateHealthColor(f) ns.UpdateHealth(f) end,
     UNIT_FLAGS = function(f) ns.UpdateHealthColor(f) ns.UpdateHealth(f) end,
     UNIT_POWER_UPDATE = function(f) ns.UpdatePower(f) if f.UpdateExtras then f:UpdateExtras() end end,
@@ -573,8 +692,8 @@ local UNIT_EVENTS = {
     UNIT_IN_RANGE_UPDATE = function(f) ns.UpdateRange(f) end,
     UNIT_PORTRAIT_UPDATE = function(f) ns.UpdatePortrait(f) end,
     UNIT_MODEL_CHANGED = function(f) ns.UpdatePortrait(f) end,
-    UNIT_SPELLCAST_START = function(f) ns.UpdateCastbar(f) end,
-    UNIT_SPELLCAST_CHANNEL_START = function(f) ns.UpdateCastbar(f) end,
+    UNIT_SPELLCAST_START = function(f) ns.UpdateCastbar(f, true) end,
+    UNIT_SPELLCAST_CHANNEL_START = function(f) ns.UpdateCastbar(f, true) end,
     UNIT_SPELLCAST_DELAYED = function(f) ns.UpdateCastbar(f) end,
     UNIT_SPELLCAST_CHANNEL_UPDATE = function(f) ns.UpdateCastbar(f) end,
     UNIT_SPELLCAST_INTERRUPTIBLE = function(f) ns.UpdateCastbar(f) end,

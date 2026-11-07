@@ -1,7 +1,8 @@
 --===========================================================================
 -- EzWoW - Unit Frames
 -- Modules/Nameplates.lua : EzWoW-style enemy nameplates (threat colour, cast bar,
---                          my debuffs, target highlight)
+--                          my debuffs, target highlight) and simple friendly
+--                          nameplates (name only, or name + thin health bar)
 --===========================================================================
 -- The game's own nameplate stays in place (clicks, stacking and positions are
 -- untouched); only its look is faded out and ours is drawn on top of it.
@@ -469,6 +470,178 @@ local function scheduleQuestRefresh()
 end
 
 -----------------------------------------------------------------------------
+-- Friendly nameplates
+-- "name": a class-coloured (players) / reaction-coloured (NPCs) name only;
+-- "bar": the name above a thin health bar. Party and raid members get a larger
+-- name. Inside instances the game's friendly plates are forbidden to addons:
+-- they are never touched there (no plate is handed out for them), and only the
+-- game's own settings are used (see the CVars below).
+-----------------------------------------------------------------------------
+local FRIEND_W, FRIEND_BAR_H = 90, 5
+
+local friends = {}      -- nameplate unit token -> our friendly widget
+local friendPool = {}
+
+local function createFriendWidget()
+    local w = CreateFrame("Frame", nil, UIParent)
+    w:SetSize(FRIEND_W, 14)
+    w.isFriend = true
+    w.name = w:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    w.name:SetJustifyH("CENTER")
+    w.name:SetWordWrap(false)
+    w.name:SetShadowOffset(0, 0)
+    local path, size = w.name:GetFont()
+    w.fontPath, w.fontSize = path, size or 10
+    -- party / raid mark left of the name (a crown for the group leader)
+    w.groupIcon = w:CreateTexture(nil, "OVERLAY")
+    w.groupIcon:SetSize(16, 16)
+    w.groupIcon:Hide()
+    w.health = CreateFrame("StatusBar", nil, w, "BackdropTemplate")
+    w.health:SetStatusBarTexture(TEX)
+    w.health:SetSize(FRIEND_W, FRIEND_BAR_H)
+    w.health:SetPoint("CENTER", w, "CENTER", 0, -4)
+    ns.UIKit:ApplyBackdrop(w.health, 1, 0)
+    w.health:SetBackdropColor(rgba(ns.Style.barBg))
+    w.health:SetBackdropBorderColor(0, 0, 0, 1)
+    w:Hide()
+    return w
+end
+
+local function friendColor(unit)
+    if Plain(UnitIsPlayer, unit) then
+        local ok, _, classFile = pcall(UnitClass, unit)
+        local c = ok and not IsSecret(classFile) and ns.ClassColor(classFile)
+        if c then return c end
+        return { 1, 1, 1 }
+    end
+    local reaction = Plain(UnitReaction, unit, "player")
+    local fc = reaction and FACTION_BAR_COLORS and FACTION_BAR_COLORS[reaction]
+    return fc and { fc.r, fc.g, fc.b } or { 0.3, 0.9, 0.3 }
+end
+
+local GROUP_ATLAS = "socialqueuing-icon-group"
+local GROUP_TEXTURE = "Interface\\FriendsFrame\\UI-Toast-ChatInviteIcon"
+local LEADER_TEXTURE = "Interface\\GroupFrame\\UI-Group-LeaderIcon"
+
+local function updateGroupIcon(w)
+    local icon = w.groupIcon
+    if not icon then return end
+    local inGroup = Plain(UnitInParty, w.unit) or Plain(UnitInRaid, w.unit)
+    if not inGroup or Plain(UnitIsUnit, w.unit, "player") then
+        icon:Hide()
+        return
+    end
+    if Plain(UnitIsGroupLeader, w.unit) then
+        icon:SetTexture(LEADER_TEXTURE)
+    elseif not (icon.SetAtlas and pcall(icon.SetAtlas, icon, GROUP_ATLAS)) then
+        icon:SetTexture(GROUP_TEXTURE)
+    end
+    icon:ClearAllPoints()
+    local ok, textWidth = pcall(w.name.GetStringWidth, w.name)
+    if ok and type(textWidth) == "number" and not IsSecret(textWidth) and textWidth > 0 then
+        icon:SetPoint("RIGHT", w.name, "CENTER", -(textWidth / 2) - 2, 0)
+    else
+        icon:SetPoint("BOTTOM", w.name, "TOP", 0, 1)
+    end
+    icon:Show()
+end
+
+local function layoutFriend(w)
+    local inGroup = Plain(UnitInParty, w.unit) or Plain(UnitInRaid, w.unit)
+    -- party and raid members get clearly bigger names than other friendly players
+    local size = w.fontSize + (inGroup and 5 or 0)
+    if w.fontPath then w.name:SetFont(w.fontPath, size, "OUTLINE") end
+    w.name:ClearAllPoints()
+    if ns.db.friendlyPlates == "bar" then
+        w.health:Show()
+        w.name:SetPoint("BOTTOM", w.health, "TOP", 0, 2)
+    else
+        w.health:Hide()
+        w.name:SetPoint("CENTER", w, "CENTER", 0, 0)
+    end
+    w.name:SetWidth(FRIEND_W + 40)
+    updateGroupIcon(w)
+end
+
+local function updateFriendName(w)
+    if not pcall(w.name.SetText, w.name, ns.UnitDisplayName(w.unit)) then w.name:SetText("") end
+    local c = friendColor(w.unit)
+    w.name:SetTextColor(c[1], c[2], c[3])
+    w.health:SetStatusBarColor(c[1], c[2], c[3])
+    updateGroupIcon(w)
+end
+
+-- secret-safe fill, like the enemy plates
+local function updateFriendHealth(w)
+    if ns.db.friendlyPlates ~= "bar" then return end
+    local unit = w.unit
+    if not ns.FillBarFromPercent(w.health, ns.HealthPercent(unit)) then
+        local hp, maxhp = Raw(UnitHealth, unit), Raw(UnitHealthMax, unit)
+        if not IsSecret(maxhp) and (type(maxhp) ~= "number" or maxhp <= 0) then maxhp = 1 end
+        w.health.ezTop = nil
+        pcall(w.health.SetMinMaxValues, w.health, 0, maxhp)
+        pcall(w.health.SetValue, w.health, hp or 0)
+    end
+end
+
+local function updateFriend(w)
+    layoutFriend(w)
+    updateFriendName(w)
+    updateFriendHealth(w)
+end
+
+-- The game's own settings for instances (set out of combat only). The user's
+-- values are kept in the saved variables and given back when not needed.
+local CVAR_ONLY_NAMES, CVAR_SHOW_FRIENDS = "nameplateShowOnlyNames", "nameplateShowFriends"
+-- 0 = plates overlap and stay over their units, 1 = plates stack upward
+local CVAR_MOTION = "nameplateMotion"
+
+local function getCVar(name)
+    local value
+    if C_CVar and type(C_CVar.GetCVar) == "function" then
+        value = Plain(C_CVar.GetCVar, name)
+    else
+        value = Plain(GetCVar, name)
+    end
+    return type(value) == "string" and value or nil
+end
+
+local function setCVar(name, value)
+    if C_CVar and type(C_CVar.SetCVar) == "function" then return pcall(C_CVar.SetCVar, name, value) end
+    if type(SetCVar) == "function" then return pcall(SetCVar, name, value) end
+    return false
+end
+
+-- want = the value we need, or nil to give the user's value back
+local function manageCVar(name, want)
+    local backup = ns.db.cvarBackup
+    local current = getCVar(name)
+    if current == nil then return end   -- not on this client
+    if want then
+        if backup[name] == nil then backup[name] = current end
+        if current ~= want then setCVar(name, want) end
+    elseif backup[name] ~= nil then
+        if current ~= backup[name] then setCVar(name, backup[name]) end
+        backup[name] = nil
+    end
+end
+
+function ns.ApplyFriendlyCVars()
+    if not ns.db then return end
+    if ns.InCombat() then
+        ns.RunAfterCombat("friendlyCVars", ns.ApplyFriendlyCVars)
+        return
+    end
+    if type(ns.db.cvarBackup) ~= "table" then ns.db.cvarBackup = {} end
+    local mode = ns.db.friendlyPlates
+    local on = mode == "name" or mode == "bar"
+    local inInstance = Plain(IsInInstance) and true or false
+    manageCVar(CVAR_ONLY_NAMES, (on and inInstance and mode == "name") and "1" or nil)
+    manageCVar(CVAR_SHOW_FRIENDS, (on and inInstance and ns.db.friendlyHideInstance) and "0" or nil)
+    manageCVar(CVAR_MOTION, ns.db.plateOverlap ~= false and "0" or nil)
+end
+
+-----------------------------------------------------------------------------
 -- Attach / detach
 -----------------------------------------------------------------------------
 local function blizzardFrame(plate)
@@ -550,7 +723,20 @@ local function blizzardStillShown(plate, ours)
     return false
 end
 
+local function detachFriend(unit)
+    local w = friends[unit]
+    if not w then return end
+    friends[unit] = nil
+    if w.plate then setBlizzardVisible(w.plate, true, w) end
+    w:Hide()
+    w:ClearAllPoints()
+    w:SetParent(UIParent)
+    w.plate, w.unit = nil, nil
+    friendPool[#friendPool + 1] = w
+end
+
 local function detach(unit)
+    detachFriend(unit)
     local w = active[unit]
     if not w then return end
     active[unit] = nil
@@ -570,20 +756,46 @@ local function giveUp()
     if blocked then return end
     blocked = true
     for unit in pairs(active) do detach(unit) end
+    for unit in pairs(friends) do detach(unit) end
     if not warned then
         warned = true
         ns.Print(ns:L("platesBlocked"))
     end
 end
 
+-- friendly plate (outside instances only: there the game hands out no plate)
+local function attachFriend(unit, plate)
+    local mode = ns.db.friendlyPlates
+    if mode ~= "name" and mode ~= "bar" then return end
+    if Plain(UnitIsUnit, unit, "player") then return end   -- my own resource plate
+    local w = table.remove(friendPool) or createFriendWidget()
+    w.unit, w.plate = unit, plate
+    w:SetParent(plate)
+    w:SetScale(ns.db.plateScale or 1)
+    w:ClearAllPoints()
+    w:SetPoint("CENTER", plate, "CENTER", 0, 0)
+    w:SetFrameLevel(plate:GetFrameLevel() + 5)
+    w:Show()
+    friends[unit] = w
+    -- a part that can't be faded: this plate keeps the default look
+    if not setBlizzardVisible(plate, false, w) then
+        detachFriend(unit)
+        return
+    end
+    updateFriend(w)
+end
+
 local function attach(unit)
-    if blocked or not ns.db.nameplates or type(unit) ~= "string" then return end
+    if blocked or type(unit) ~= "string" or IsSecret(unit) then return end
     detach(unit)
     if not (C_NamePlate and type(C_NamePlate.GetNamePlateForUnit) == "function") then return end
     local ok, plate = pcall(C_NamePlate.GetNamePlateForUnit, unit)
     if not ok or not plate or (plate.IsForbidden and plate:IsForbidden()) then return end
-    -- only enemies; friendly plates keep the default look
-    if not Plain(UnitCanAttack, "player", unit) then return end
+    if not Plain(UnitCanAttack, "player", unit) then
+        attachFriend(unit, plate)
+        return
+    end
+    if not ns.db.nameplates then return end
 
     local w = table.remove(pool) or createWidget()
     ensureContainer(w)
@@ -640,7 +852,8 @@ end
 
 function ns.RefreshNameplates()
     for unit in pairs(active) do detach(unit) end
-    if ns.db.nameplates and C_NamePlate and type(C_NamePlate.GetNamePlates) == "function" then
+    for unit in pairs(friends) do detach(unit) end
+    if C_NamePlate and type(C_NamePlate.GetNamePlates) == "function" then
         local ok, plates = pcall(C_NamePlate.GetNamePlates)
         if ok and type(plates) == "table" then
             for _, plate in ipairs(plates) do
@@ -664,8 +877,8 @@ local UNIT_HANDLERS = {
     UNIT_FACTION = updateColor,
     UNIT_AURA = updateDebuffs,
     UNIT_THREAT_LIST_UPDATE = updateColor,
-    UNIT_SPELLCAST_START = function(w) ns.UpdateCastbar(w) end,
-    UNIT_SPELLCAST_CHANNEL_START = function(w) ns.UpdateCastbar(w) end,
+    UNIT_SPELLCAST_START = function(w) ns.UpdateCastbar(w, true) end,
+    UNIT_SPELLCAST_CHANNEL_START = function(w) ns.UpdateCastbar(w, true) end,
     UNIT_SPELLCAST_DELAYED = function(w) ns.UpdateCastbar(w) end,
     UNIT_SPELLCAST_CHANNEL_UPDATE = function(w) ns.UpdateCastbar(w) end,
     UNIT_SPELLCAST_INTERRUPTIBLE = function(w) ns.UpdateCastbar(w) end,
@@ -676,20 +889,37 @@ local UNIT_HANDLERS = {
     UNIT_SPELLCAST_INTERRUPTED = function(w) ns.CastbarStopped(w, true) end,
 }
 
+local FRIEND_HANDLERS = {
+    UNIT_HEALTH = updateFriendHealth,
+    UNIT_MAXHEALTH = updateFriendHealth,
+    UNIT_NAME_UPDATE = updateFriendName,
+}
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:SetScript("OnEvent", function(self, event, unit)
     if event == "PLAYER_LOGIN" then
         for name in pairs(UNIT_HANDLERS) do pcall(self.RegisterEvent, self, name) end
         for _, name in ipairs({ "NAME_PLATE_UNIT_ADDED", "NAME_PLATE_UNIT_REMOVED", "PLAYER_TARGET_CHANGED",
-            "RAID_TARGET_UPDATE", "UNIT_THREAT_SITUATION_UPDATE", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
+            "RAID_TARGET_UPDATE", "UNIT_THREAT_SITUATION_UPDATE", "PLAYER_FOCUS_CHANGED",
+            "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "GROUP_ROSTER_UPDATE", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
             "QUEST_LOG_UPDATE", "UNIT_QUEST_LOG_CHANGED" }) do
             pcall(self.RegisterEvent, self, name)
         end
         C_Timer.After(1, prewarm)
+        ns.ApplyFriendlyCVars()
         return
     end
     if event == "PLAYER_REGEN_ENABLED" then prewarm() end
+    -- a unit that turns hostile or friendly gets the other kind of plate
+    if event == "UNIT_FACTION" and type(unit) == "string" and not IsSecret(unit) and unit:find("^nameplate") then
+        local hostile = Plain(UnitCanAttack, "player", unit) and true or false
+        if (hostile and (friends[unit] or (ns.db.nameplates and not active[unit]))) or (not hostile and active[unit]) then
+            attach(unit)
+            updateQuestMarker(unit)
+            return
+        end
+    end
     if event == "NAME_PLATE_UNIT_ADDED" then
         attach(unit)
         updateQuestMarker(unit)
@@ -698,10 +928,22 @@ eventFrame:SetScript("OnEvent", function(self, event, unit)
         if type(unit) == "string" and not IsSecret(unit) then hideQuestMarker(unit) end
     elseif event == "QUEST_LOG_UPDATE" or event == "UNIT_QUEST_LOG_CHANGED" then
         scheduleQuestRefresh()
+    elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
+        ns.ApplyFriendlyCVars()
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        for _, w in pairs(friends) do layoutFriend(w) end
     elseif event == "PLAYER_TARGET_CHANGED" then
+        -- the target's default plate gets new parts: fade them too
+        for _, w in pairs(friends) do setBlizzardVisible(w.plate, false, w) end
         for unit, w in pairs(active) do
             updateTarget(w)
             ns.CheckPlate(unit)
+            -- the interrupt warning may be limited to my target and focus
+            if ns.db.kickTargetOnly then ns.UpdateCastbar(w) end
+        end
+    elseif event == "PLAYER_FOCUS_CHANGED" then
+        if ns.db.kickTargetOnly then
+            for _, w in pairs(active) do ns.UpdateCastbar(w) end
         end
     elseif event == "RAID_TARGET_UPDATE" then
         for _, w in pairs(active) do updateRaidIcon(w) end
@@ -710,6 +952,8 @@ eventFrame:SetScript("OnEvent", function(self, event, unit)
     else
         local handler = UNIT_HANDLERS[event]
         local w = type(unit) == "string" and not IsSecret(unit) and active[unit]
+        local fw = type(unit) == "string" and not IsSecret(unit) and friends[unit]
+        if fw and FRIEND_HANDLERS[event] then FRIEND_HANDLERS[event](fw) end
         if handler and w then
             handler(w)
             if event == "UNIT_AURA" then repositionQuestMarker(unit) end

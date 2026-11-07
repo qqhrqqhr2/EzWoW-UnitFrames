@@ -14,7 +14,7 @@ local FONT_BIG, FONT_SMALL = "GameFontHighlight", "GameFontHighlightSmall"
 ns.SIZES = {
     big   = { w = 232, info = 15, health = 24, power = 10, portrait = true, level = true, powerText = true },
     focus = { w = 180, info = 13, health = 20, power = 6, level = true },
-    party = { w = 176, info = 13, health = 22, power = 6, level = true },
+    party = { w = 84, info = 13, health = 22, power = 6, level = true },
     small = { w = 128, health = 20, power = 0 },
     pet   = { w = 128, health = 18, power = 5 },
 }
@@ -57,6 +57,103 @@ local function makeBar(parent)
     return bar
 end
 
+-----------------------------------------------------------------------------
+-- Incoming heals: two thin bars that continue the health fill to the right
+-- (mine brighter, other healers' paler). Each runs 0..max health over the
+-- whole bar width, so its filled part is the heal's share of max health; a clip
+-- frame the size of the health bar cuts what would run past full health.
+-- Values may be secret: they only go into the bars, never into comparisons.
+-----------------------------------------------------------------------------
+local HEAL_MINE = { 0.35, 1.0, 0.45, 0.55 }
+local HEAL_OTHER = { 0.35, 0.85, 1.0, 0.40 }
+
+local function buildHealPrediction(f)
+    local clip = CreateFrame("Frame", nil, f.health)
+    clip:SetAllPoints(f.health)
+    clip:SetClipsChildren(true)
+    clip:EnableMouse(false)
+    local function bar(color, anchor)
+        local b = CreateFrame("StatusBar", nil, clip)
+        b:SetStatusBarTexture(TEX)
+        b:SetStatusBarColor(color[1], color[2], color[3], color[4])
+        b:SetMinMaxValues(0, 1)
+        b:SetValue(0)
+        b:SetPoint("TOPLEFT", anchor, "TOPRIGHT", 0, 0)
+        b:SetPoint("BOTTOMLEFT", anchor, "BOTTOMRIGHT", 0, 0)
+        b:EnableMouse(false)
+        return b
+    end
+    local mine = bar(HEAL_MINE, f.health:GetStatusBarTexture())
+    local other = bar(HEAL_OTHER, mine:GetStatusBarTexture())
+    -- the bars are as wide as the health bar itself
+    local function fitWidth()
+        local w = f.health:GetWidth()
+        if w and w > 0 then
+            mine:SetWidth(w)
+            other:SetWidth(w)
+        end
+    end
+    f.health:HookScript("OnSizeChanged", fitWidth)
+    fitWidth()
+    if type(CreateUnitHealPredictionCalculator) == "function" then
+        local ok, calc = pcall(CreateUnitHealPredictionCalculator)
+        if ok and calc then
+            local modes = Enum and Enum.UnitIncomingHealClampMode
+            if calc.SetIncomingHealClampMode and modes and modes.MaximumHealth then
+                pcall(calc.SetIncomingHealClampMode, calc, modes.MaximumHealth)
+            end
+            f.healCalc = calc
+        end
+    end
+    f.healMine, f.healOther, f.healClip = mine, other, clip
+end
+
+local function setHealBars(f, maxhp, mine, other)
+    for _, pair in ipairs({ { f.healMine, mine }, { f.healOther, other } }) do
+        local b, value = pair[1], pair[2]
+        if (IsSecret(value) or value ~= nil) and (IsSecret(maxhp) or maxhp ~= nil) then
+            pcall(b.SetMinMaxValues, b, 0, maxhp)
+            if not pcall(b.SetValue, b, value) then pcall(b.SetValue, b, 0) end
+        else
+            pcall(b.SetValue, b, 0)
+        end
+    end
+end
+
+function ns.UpdateHealPrediction(f)
+    if not f.healClip then return end
+    local unit = f.unit
+    -- (a preview frame has no real unit, so this also covers previews)
+    if not ns.db.healPrediction or not Plain(UnitExists, unit) then
+        f.healClip:Hide()
+        return
+    end
+    f.healClip:Show()
+    local maxhp = Raw(UnitHealthMax, unit)
+    local mine, other
+    if f.healCalc and type(UnitGetDetailedHealPrediction) == "function" then
+        local calc = f.healCalc
+        if pcall(UnitGetDetailedHealPrediction, unit, "player", calc) then
+            local ok, _, m, o = pcall(calc.GetIncomingHeals, calc)
+            if ok then mine, other = m, o end
+        end
+    end
+    if mine == nil and other == nil and type(UnitGetIncomingHeals) == "function" then
+        -- older call: total and mine; the others' part is only known with plain values
+        local okAll, all = pcall(UnitGetIncomingHeals, unit)
+        local okMine, my = pcall(UnitGetIncomingHeals, unit, "player")
+        mine = okMine and my or nil
+        if okAll and not IsSecret(all) and type(all) == "number" then
+            local m = (not IsSecret(mine) and type(mine) == "number") and mine or 0
+            other = math.max(0, all - m)
+        elseif okAll then
+            -- secret total: shown as one bar
+            mine, other = all, nil
+        end
+    end
+    setHealBars(f, maxhp, mine, other)
+end
+
 local function showUnitTooltip(self)
     if not self.unit or not Plain(UnitExists, self.unit) then return end
     if type(GameTooltip_SetDefaultAnchor) == "function" then
@@ -64,7 +161,17 @@ local function showUnitTooltip(self)
     else
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
     end
-    if pcall(GameTooltip.SetUnit, GameTooltip, self.unit) then GameTooltip:Show() end
+    -- Hovering the frame makes its unit the "mouseover" unit. Inside instances the
+    -- tooltip built for a group token ("party1") can't be read by tooltip addons,
+    -- while the same person's "mouseover" tooltip can, so that one is used.
+    local unit = self.unit
+    if Plain(UnitExists, "mouseover") then
+        local ok, same = pcall(UnitIsUnit, "mouseover", unit)
+        if ok and not IsSecret(same) and same then unit = "mouseover" end
+    end
+    -- a plain call, like the game's own unit frames: wrapped in pcall, an error in
+    -- any tooltip hook would stop the hooks after it (tooltip addons) silently
+    if GameTooltip:SetUnit(unit) then GameTooltip:Show() end
 end
 
 -- key: saved-position key; unit: unit token; sizeKey: ns.SIZES key
@@ -86,6 +193,7 @@ function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
     -- hit/heal trail bars go between the bar background and the fill; built
     -- before anything else takes its frame level from the health bar
     if ns.BuildHealthTrails then ns.BuildHealthTrails(f) end
+    buildHealPrediction(f)
     f.power = makeBar(f)
 
     local hl = f:CreateTexture(nil, "HIGHLIGHT")
@@ -460,6 +568,7 @@ function ns.UpdateHealth(f)
         setHealthText(f.healthText, textModeFor(f), unit, hp, maxhp)
     end
     if ns.UpdateHealthFX then ns.UpdateHealthFX(f) end
+    ns.UpdateHealPrediction(f)
 end
 
 local function powerColor(unit)

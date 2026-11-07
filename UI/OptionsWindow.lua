@@ -60,7 +60,7 @@ function ns:ToggleOptions()
     local S = ns.Style
     local db = self.db
     configFrame = CreateFrame("Frame", "EzWoWUnitFramesConfig", UIParent, "BackdropTemplate")
-    configFrame:SetSize(460, 908)
+    configFrame:SetSize(460, 1012)
     configFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     configFrame:SetFrameStrata("FULLSCREEN_DIALOG")
     configFrame:SetToplevel(true)
@@ -152,21 +152,59 @@ function ns:ToggleOptions()
         ns.ApplyLayout()
         ns.RefreshAll()
     end)
+    dbOption(L1, -418, "healPrediction")
+    dbOption(L2, -418, "bigMyAuras", function()
+        -- party rows change height with it
+        ns.ApplyLayout()
+        ns.RefreshAll()
+    end)
+    dbOption(L1, -444, "partyHorizontal", "layout")
 
     -- 3. Nameplates
-    section("secPlates", -430)
+    section("secPlates", -482)
     local function plateRefresh() if ns.RefreshNameplates then ns.RefreshNameplates() end end
-    dbOption(L1, -454, "nameplates", plateRefresh)
-    dbOption(L2, -454, "plateCastbar", plateRefresh)
-    dbOption(L1, -480, "plateDebuffs", plateRefresh)
-    dbOption(L2, -480, "plateThreat", plateRefresh)
-    dbOption(L1, -506, "plateTankMode", plateRefresh)
-    dbOption(L2, -506, "plateFadeOthers", plateRefresh)
-    dbOption(L1, -532, "plateQuest", plateRefresh)
+    dbOption(L1, -506, "nameplates", plateRefresh)
+    dbOption(L2, -506, "plateCastbar", plateRefresh)
+    dbOption(L1, -532, "plateDebuffs", plateRefresh)
+    dbOption(L2, -532, "plateThreat", plateRefresh)
+    dbOption(L1, -558, "plateTankMode", plateRefresh)
+    dbOption(L2, -558, "plateFadeOthers", plateRefresh)
+    dbOption(L1, -584, "plateQuest", plateRefresh)
+    -- interrupt warning: nameplates and the target / focus cast bars
+    local function kickRefresh()
+        ns.RefreshAll()
+        plateRefresh()
+    end
+    dbOption(L2, -584, "kickWarn", kickRefresh)
+    dbOption(L1, -610, "kickTargetOnly", kickRefresh)
+    dbOption(L2, -610, "kickSound", kickRefresh)
+    -- friendly nameplates: game look / name only / name + thin bar
+    local function friendlyRefresh()
+        plateRefresh()
+        if ns.ApplyFriendlyCVars then ns.ApplyFriendlyCVars() end
+    end
+    local friendlyBtn = UIKit:CreateButton(configFrame, 205, 24, "", false, "GameFontHighlightSmall")
+    friendlyBtn:SetPoint("TOPLEFT", L1, -637)
+    friendlyBtn:SetScript("OnClick", function(self)
+        local items = {}
+        for _, mode in ipairs({ "default", "name", "bar" }) do
+            items[#items + 1] = { value = mode, text = function() return ns:L("friendly_" .. mode) end }
+        end
+        UIKit:ShowMenu(self, items, {
+            current = db.friendlyPlates,
+            onSelect = function(value)
+                db.friendlyPlates = value
+                friendlyRefresh()
+                ns.RefreshOptions()
+            end,
+        })
+    end)
+    dbOption(L2, -636, "friendlyHideInstance", friendlyRefresh)
+    dbOption(300, -668, "plateOverlap", friendlyRefresh)
     local plateScaleLabel = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    plateScaleLabel:SetPoint("TOPLEFT", 24, -568)
+    plateScaleLabel:SetPoint("TOPLEFT", 24, -672)
     local plateMinus = UIKit:CreateButton(configFrame, 27, 27, "-", false, "GameFontNormalLarge")
-    plateMinus:SetPoint("TOPLEFT", 150, -561)
+    plateMinus:SetPoint("TOPLEFT", 150, -665)
     local plateScaleValue = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     plateScaleValue:SetPoint("LEFT", plateMinus, "RIGHT", 4, 0)
     plateScaleValue:SetWidth(52)
@@ -181,14 +219,14 @@ function ns:ToggleOptions()
     platePlus:SetScript("OnClick", function() changePlateScale(0.05) end)
 
     -- 3. Health text
-    section("secText", -596)
+    section("secText", -700)
     local textButtons = {}
     local function textPicker(x, dbKey, labelKey)
         local label = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        label:SetPoint("TOPLEFT", x + 2, -622)
+        label:SetPoint("TOPLEFT", x + 2, -726)
         label:SetTextColor(rgba(S.textMuted))
         local b = UIKit:CreateButton(configFrame, 132, 26, "", false, "GameFontHighlightSmall")
-        b:SetPoint("TOPLEFT", x, -638)
+        b:SetPoint("TOPLEFT", x, -742)
         b:SetScript("OnClick", function(self)
             local items = {}
             for _, mode in ipairs(TEXT_MODES) do
@@ -210,11 +248,11 @@ function ns:ToggleOptions()
     textPicker(304, "partyText", "textParty")
 
     -- 4. Size & position
-    section("secLayout", -680)
+    section("secLayout", -784)
     local scaleLabel = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    scaleLabel:SetPoint("TOPLEFT", 24, -714)
+    scaleLabel:SetPoint("TOPLEFT", 24, -818)
     local minus = UIKit:CreateButton(configFrame, 27, 27, "-", false, "GameFontNormalLarge")
-    minus:SetPoint("TOPLEFT", 150, -707)
+    minus:SetPoint("TOPLEFT", 150, -811)
     local scaleValue = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     scaleValue:SetPoint("LEFT", minus, "RIGHT", 4, 0)
     scaleValue:SetWidth(52)
@@ -229,14 +267,14 @@ function ns:ToggleOptions()
     plus:SetScript("OnClick", function() changeScale(0.05) end)
 
     local lockBtn = UIKit:CreateButton(configFrame, 205, 32, "", true)
-    lockBtn:SetPoint("TOPLEFT", 20, -744)
+    lockBtn:SetPoint("TOPLEFT", 20, -848)
     lockBtn:SetScript("OnClick", function() ns.SetLocked(not db.locked) end)
     local resetBtn = UIKit:CreateButton(configFrame, 205, 32, "")
-    resetBtn:SetPoint("TOPLEFT", 235, -744)
+    resetBtn:SetPoint("TOPLEFT", 235, -848)
     resetBtn:SetScript("OnClick", function() ns.ResetPositions() end)
 
     local langBtn = UIKit:CreateButton(configFrame, 205, 28, "")
-    langBtn:SetPoint("TOPLEFT", 20, -784)
+    langBtn:SetPoint("TOPLEFT", 20, -888)
     local langItems = {}
     for i, v in ipairs(ns.LANGUAGE_OPTIONS) do langItems[i] = { value = v[1], text = v[2] } end
     ns.LanguageDropdown.Attach(langBtn, {
@@ -251,11 +289,11 @@ function ns:ToggleOptions()
     })
 
     local donateBtn = UIKit:CreateButton(configFrame, 205, 28, "", true)
-    donateBtn:SetPoint("TOPLEFT", 235, -784)
+    donateBtn:SetPoint("TOPLEFT", 235, -888)
     donateBtn:SetScript("OnClick", showDonatePopup)
 
     local hint = configFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hint:SetPoint("TOPLEFT", 22, -824)
+    hint:SetPoint("TOPLEFT", 22, -928)
     hint:SetWidth(416)
     hint:SetJustifyH("LEFT")
     hint:SetTextColor(rgba(S.textMuted))
@@ -275,6 +313,7 @@ function ns:ToggleOptions()
             ns.FitText(tb.label, ns:L(tb.labelKey), 128, 11, 8)
             tb.button:SetLabel(ns:L("text_" .. tostring(db[tb.dbKey])) .. " ▼")
         end
+        friendlyBtn:SetLabel(ns:L("friendlyPlates") .. ": " .. ns:L("friendly_" .. tostring(db.friendlyPlates)) .. " ▼")
         ns.FitText(plateScaleLabel, ns:L("plateScale"), 120, 12, 9)
         plateScaleValue:SetText(math.floor((db.plateScale or 1) * 100 + 0.5) .. "%")
         ns.FitText(scaleLabel, ns:L("scale"), 120, 12, 9)

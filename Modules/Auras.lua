@@ -192,7 +192,8 @@ local function makeInitializer(f, isDebuff, clickThrough, fixedSize)
         local cd = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
         cd:SetAllPoints(icon)
         cd:SetDrawEdge(false)
-        if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(size < 22) end
+        -- long times ("1시간 0분") only fit on icons of 24 px and up
+        if cd.SetHideCountdownNumbers then cd:SetHideCountdownNumbers(size < 24) end
         local textHost = CreateFrame("Frame", nil, button)
         textHost:SetAllPoints(button)
         textHost:SetFrameLevel(cd:GetFrameLevel() + 2)
@@ -241,11 +242,12 @@ local function aurasSecret()
 end
 
 -- Resizes the buttons the engine already built. Only when auras are not secret;
--- returns true when every button could be sized.
-local function resizeGroupButtons(c, keys, size)
+-- returns true when every button could be sized. sizeOf(key) gives each group's size.
+local function resizeGroupButtons(c, keys, sizeOf)
     if aurasSecret() then return false end
     local all = true
     for _, key in ipairs(keys) do
+        local size = sizeOf(key)
         local okN, n = false, 0
         if c.GetAuraGroupFrameCount then okN, n = pcall(c.GetAuraGroupFrameCount, c, key) end
         if okN and type(n) == "number" and not IsSecret(n) then
@@ -260,30 +262,46 @@ local function resizeGroupButtons(c, keys, size)
     return all
 end
 
--- Size, row width and filter follow the settings; out of combat only.
--- New buttons get their size at creation (initializer) and from the group layout;
--- buttons built earlier are resized once the client allows it (c.ezButtonSize).
-local function applyContainerConfig(f)
-    local c = f.auraContainer
-    if not c or ns.InCombat() then return end
-    local size = iconSize(f)
-    local enabled = (f.unit == "player") and ns.db.playerAuras or ns.db.targetAuras
-    pcall(c.SetShown, c, enabled and true or false)
-    local filter = debuffFilterFor(f)
-    if c.ezFilter ~= filter and c.SetAuraGroupFilterString then
-        if pcall(c.SetAuraGroupFilterString, c, "debuffs", filter) then c.ezFilter = filter end
+-- My own auras on the target are drawn this much larger (option bigMyAuras).
+local BIG_FACTOR = 1.4
+
+-- The group set a frame's container is built with. Groups can't be removed or
+-- renamed later, so a settings change that needs other groups builds a new
+-- container (out of combat).
+--   "plain": debuffs (filter per onlyMyDebuffs) + buffs
+--   "big":   my debuffs (large), other debuffs, my buffs (large), other buffs
+--   "bigOnlyMine": my debuffs (large), my buffs (large), other buffs
+local function shapeOf(f)
+    if f.unit ~= "player" and ns.db.bigMyAuras then
+        return ns.db.onlyMyDebuffs and "bigOnlyMine" or "big"
     end
-    if c.ezSize ~= size then
-        c.ezSize, f.auraIconSize = size, size
-        if c.SetFlowLayoutMaximumLineSize then
-            pcall(c.SetFlowLayoutMaximumLineSize, c, TARGET_COLUMNS * size + (TARGET_COLUMNS - 1) * GAP + 0.4)
-        end
-        pcall(c.SetAuraGroupLayout, c, "debuffs", groupLayout(size))
-        pcall(c.SetAuraGroupLayout, c, "buffs", groupLayout(size, true))
+    return "plain"
+end
+
+-- { key, filter, big, newLine } in display order
+local function groupsFor(f, shape)
+    if shape == "big" then
+        return {
+            { key = "myDebuffs", filter = "HARMFUL|PLAYER", big = true, debuff = true },
+            { key = "debuffs", filter = "HARMFUL|!PLAYER", newLine = true, debuff = true },
+            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true },
+            { key = "buffs", filter = "HELPFUL|!PLAYER", newLine = true },
+        }
+    elseif shape == "bigOnlyMine" then
+        return {
+            { key = "myDebuffs", filter = "HARMFUL|PLAYER", big = true, debuff = true },
+            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true },
+            { key = "buffs", filter = "HELPFUL|!PLAYER", newLine = true },
+        }
     end
-    if c.ezButtonSize ~= size and resizeGroupButtons(c, { "debuffs", "buffs" }, size) then
-        c.ezButtonSize = size
-    end
+    return {
+        { key = "debuffs", filter = debuffFilterFor(f), debuff = true },
+        { key = "buffs", filter = "HELPFUL", newLine = true },
+    }
+end
+
+local function groupSize(g, size)
+    return g.big and math.floor(size * BIG_FACTOR + 0.5) or size
 end
 
 -- frames whose button sizing may still be pending
@@ -291,17 +309,65 @@ local containerFrames = {}
 
 local buildContainer
 
-local function createAuraContainer(f, yOffset)
+local function createAuraContainer(f, yOffset, shape)
     local c = containerSupported()
     if not c then return nil end
-    local ok, err = pcall(buildContainer, c, f, yOffset)
+    local ok, err = pcall(buildContainer, c, f, yOffset, shape)
     if ok then return c end
     pcall(c.Hide, c)
     if type(geterrorhandler) == "function" then geterrorhandler()(err) end
     return nil
 end
 
-function buildContainer(c, f, yOffset)
+-- Size, row width and filter follow the settings; out of combat only.
+-- New buttons get their size at creation (initializer) and from the group layout;
+-- buttons built earlier are resized once the client allows it (c.ezButtonSize).
+local function applyContainerConfig(f)
+    local c = f.auraContainer
+    if not c or ns.InCombat() then return end
+    local shape = shapeOf(f)
+    if c.ezShape ~= shape then
+        -- another group set: a fresh container replaces this one
+        local fresh = createAuraContainer(f, f.auraYOffset, shape)
+        if fresh then
+            pcall(c.SetUnit, c, "none")
+            pcall(c.Hide, c)
+            f.auraContainer, c = fresh, fresh
+        end
+    end
+    local size = iconSize(f)
+    local enabled = (f.unit == "player") and ns.db.playerAuras or ns.db.targetAuras
+    pcall(c.SetShown, c, enabled and true or false)
+    if c.ezShape == "plain" then
+        local filter = debuffFilterFor(f)
+        if c.ezFilter ~= filter and c.SetAuraGroupFilterString then
+            if pcall(c.SetAuraGroupFilterString, c, "debuffs", filter) then c.ezFilter = filter end
+        end
+    end
+    local groups = c.ezGroups or {}
+    if c.ezSize ~= size then
+        c.ezSize, f.auraIconSize = size, size
+        if c.SetFlowLayoutMaximumLineSize then
+            pcall(c.SetFlowLayoutMaximumLineSize, c, TARGET_COLUMNS * size + (TARGET_COLUMNS - 1) * GAP + 0.4)
+        end
+        for _, g in ipairs(groups) do
+            pcall(c.SetAuraGroupLayout, c, g.key, groupLayout(groupSize(g, size), g.newLine))
+        end
+    end
+    if c.ezButtonSize ~= size then
+        local keys, sizes = {}, {}
+        for _, g in ipairs(groups) do
+            keys[#keys + 1] = g.key
+            sizes[g.key] = groupSize(g, size)
+        end
+        if resizeGroupButtons(c, keys, function(key) return sizes[key] end) then
+            c.ezButtonSize = size
+        end
+    end
+end
+
+function buildContainer(c, f, yOffset, shape)
+    shape = shape or shapeOf(f)
     c:SetParent(f)
     c:ClearAllPoints()
     c:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 0, -(yOffset or 4))
@@ -315,17 +381,18 @@ function buildContainer(c, f, yOffset)
     if c.SetFlowLayoutMaximumLineSize then
         c:SetFlowLayoutMaximumLineSize(TARGET_COLUMNS * size + (TARGET_COLUMNS - 1) * GAP + 0.4)
     end
-    -- debuffs first, buffs start on a new row
-    c:AddAuraGroup("debuffs", debuffFilterFor(f), {
-        maxFrameCount = GROUP_MAX,
-        initializeFrame = makeInitializer(f, true),
-        layout = groupLayout(size),
-    })
-    c:AddAuraGroup("buffs", "HELPFUL", {
-        maxFrameCount = GROUP_MAX,
-        initializeFrame = makeInitializer(f, false),
-        layout = groupLayout(size, true),
-    })
+    -- debuffs first; each later kind starts on a new row
+    local groups = groupsFor(f, shape)
+    for _, g in ipairs(groups) do
+        local gs = groupSize(g, size)
+        c:AddAuraGroup(g.key, g.filter, {
+            maxFrameCount = GROUP_MAX,
+            -- big groups get their own size; the others follow f.auraIconSize
+            initializeFrame = makeInitializer(f, g.debuff, false, g.big and gs or nil),
+            layout = groupLayout(gs, g.newLine),
+        })
+    end
+    c.ezShape, c.ezGroups = shape, groups
     c.ezFilter, c.ezSize, c.ezButtonSize = debuffFilterFor(f), size, size
     c:SetUnit(f.unit)
     pcall(c.UpdateAllAuras, c)
@@ -334,6 +401,7 @@ end
 
 -- yOffset: gap below the frame (the player frame keeps room for combo points / druid mana)
 function ns.CreateTargetAuras(f, yOffset)
+    f.auraYOffset = yOffset
     local okC, container = pcall(createAuraContainer, f, yOffset)
     if okC and container then
         f.auraContainer = container
@@ -404,9 +472,18 @@ end
 -- Party: up to 4 debuffs beside the frame, dispellable first + highlight
 -----------------------------------------------------------------------------
 local PARTY_ICONS, PARTY_SIZE, PARTY_GAP = 4, 20, 2
--- buffs: one row under the member (the party layout leaves PARTY_BUFF_ROW for it)
-local PARTY_BUFF_ICONS, PARTY_BUFF_SIZE = 9, 16
-ns.PARTY_BUFF_ROW = PARTY_BUFF_SIZE + 3
+-- buffs: one row under the member (the party layout leaves ns.PartyBuffRow() for it);
+-- with bigMyAuras my own buffs lead the row at a larger size
+local PARTY_BUFF_ICONS, PARTY_BUFF_SIZE, PARTY_BUFF_BIG = 9, 16, 18
+-- with bigMyAuras the row may wrap once, so a few more of my own buffs fit
+local PARTY_BIG_LINES = 2
+-- the buff row is as wide as the party frame
+local PARTY_ROW_W = (ns.SIZES and ns.SIZES.party and ns.SIZES.party.w) or 84
+local function partyBuffHeight()
+    if ns.db.bigMyAuras then return PARTY_BIG_LINES * PARTY_BUFF_BIG + (PARTY_BIG_LINES - 1) * PARTY_GAP end
+    return PARTY_BUFF_SIZE
+end
+function ns.PartyBuffRow() return partyBuffHeight() + 3 end
 
 -- Debuff rows: debuffs I can dispel first, then the rest. The second group
 -- excludes the first one's token, so no debuff is shown twice. The token pairs
@@ -458,7 +535,7 @@ local function buildPartyDebuffs(c, f, holder, filters)
     c:Show()
 end
 
-local function buildPartyBuffs(c, f, holder)
+local function buildPartyBuffs(c, f, holder, big)
     c:SetParent(holder)
     c:ClearAllPoints()
     c:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, 0)
@@ -468,17 +545,46 @@ local function buildPartyBuffs(c, f, holder)
         c:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
     end
     if c.SetFlowLayoutMaximumLineSize then
-        c:SetFlowLayoutMaximumLineSize(PARTY_BUFF_ICONS * PARTY_BUFF_SIZE + (PARTY_BUFF_ICONS - 1) * PARTY_GAP + 0.4)
+        c:SetFlowLayoutMaximumLineSize(PARTY_ROW_W + 0.4)
     end
-    c:AddAuraGroup("buffs", "HELPFUL", {
+    if big then
+        c:AddAuraGroup("myBuffs", "HELPFUL|PLAYER", {
+            maxFrameCount = 8,
+            initializeFrame = makeInitializer(f, false, false, PARTY_BUFF_BIG),
+            layout = { elementWidth = PARTY_BUFF_BIG, elementHeight = PARTY_BUFF_BIG,
+                elementSpacing = PARTY_GAP, lineSpacing = PARTY_GAP },
+        })
+    end
+    c:AddAuraGroup("buffs", big and "HELPFUL|!PLAYER" or "HELPFUL", {
         maxFrameCount = PARTY_BUFF_ICONS,
         initializeFrame = makeInitializer(f, false, false, PARTY_BUFF_SIZE),
         layout = { elementWidth = PARTY_BUFF_SIZE, elementHeight = PARTY_BUFF_SIZE,
             elementSpacing = PARTY_GAP, lineSpacing = PARTY_GAP },
     })
+    c.ezBig = big and true or false
     c:SetUnit(f.unit)
     pcall(c.UpdateAllAuras, c)
     c:Show()
+end
+
+-- Builds (or rebuilds, after the option changed) the party buff row. Out of combat.
+local function makePartyBuffs(f)
+    local clip = f.partyBuffClip
+    local big = ns.db.bigMyAuras and true or false
+    clip:SetHeight(partyBuffHeight())
+    local old = f.partyBuffs
+    if old and old.ezBig == big then return end
+    local b = containerSupported()
+    if not b then return end
+    if pcall(buildPartyBuffs, b, f, clip, big) then
+        if old then
+            pcall(old.SetUnit, old, "none")
+            pcall(old.Hide, old)
+        end
+        f.partyBuffs = b
+    else
+        pcall(b.Hide, b)
+    end
 end
 
 -- Border strips round the health bar, built while the engine creates the slot
@@ -554,6 +660,7 @@ local function applyPartyContainerConfig(f)
     local on = ns.db.partyDebuffs and true or false
     pcall(f.partyDebuffs.SetShown, f.partyDebuffs, on)
     if f.dispelSlots then pcall(f.dispelSlots.SetShown, f.dispelSlots, on) end
+    if f.partyBuffClip then makePartyBuffs(f) end
     if f.partyBuffs then pcall(f.partyBuffs.SetShown, f.partyBuffs, ns.db.partyBuffs and true or false) end
 end
 
@@ -566,9 +673,23 @@ local function updatePartyContainers(f)
     if f.partyBuffs then pcall(f.partyBuffs.UpdateAllAuras, f.partyBuffs) end
 end
 
+-- Debuffs beside the frame (vertical party) or above it (horizontal party,
+-- where the right side holds the next member). Out of combat (layout pass).
+function ns.PlacePartyDebuffs(f)
+    local clip = f and f.partyDebuffClip
+    if not clip then return end
+    clip:ClearAllPoints()
+    if ns.db.partyHorizontal then
+        clip:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, 3)
+    else
+        clip:SetPoint("LEFT", f, "RIGHT", 4, 0)
+    end
+end
+
 function ns.CreatePartyAuras(f)
     f.auraIconSize = PARTY_SIZE
     local clip = CreateFrame("Frame", nil, f)
+    f.partyDebuffClip = clip
     clip:SetPoint("LEFT", f, "RIGHT", 4, 0)
     clip:SetSize(PARTY_ICONS * (PARTY_SIZE + PARTY_GAP), PARTY_SIZE)
     clip:SetClipsChildren(true)
@@ -580,17 +701,11 @@ function ns.CreatePartyAuras(f)
         -- buff row under the frame, clipped to one row
         local buffClip = CreateFrame("Frame", nil, f)
         buffClip:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 0, -3)
-        buffClip:SetSize(PARTY_BUFF_ICONS * (PARTY_BUFF_SIZE + PARTY_GAP), PARTY_BUFF_SIZE)
+        buffClip:SetSize(PARTY_ROW_W, PARTY_BUFF_SIZE)
         buffClip:SetClipsChildren(true)
         buffClip:EnableMouse(false)
-        local b = containerSupported()
-        if b then
-            if pcall(buildPartyBuffs, b, f, buffClip) then
-                f.partyBuffs = b
-            else
-                pcall(b.Hide, b)
-            end
-        end
+        f.partyBuffClip = buffClip
+        makePartyBuffs(f)
         -- the engine slots draw the highlight now (no highlight if they're missing)
         if f.dispelGlow then f.dispelGlow:Hide() end
         return
@@ -598,6 +713,7 @@ function ns.CreatePartyAuras(f)
     clip:Hide()
     local holder = CreateFrame("Frame", nil, f)
     holder:SetPoint("LEFT", f, "RIGHT", 4, 0)
+    f.partyDebuffClip = holder
     holder:SetSize(PARTY_ICONS * (PARTY_SIZE + 2), PARTY_SIZE)
     holder.icons = {}
     for i = 1, PARTY_ICONS do

@@ -39,6 +39,8 @@ ns.Style = {
     castbar     = { 0.949, 0.706, 0.353, 1.00 },
     castLocked  = { 0.600, 0.620, 0.660, 1.00 },
     castChannel = { 0.420, 0.700, 0.950, 1.00 },
+    kickReady   = { 1.000, 0.270, 0.200, 1.00 }, -- interrupt warning (my interrupt ready / none)
+    kickCooldown = { 0.620, 0.560, 0.950, 1.00 }, -- interrupt warning (my interrupt on cooldown)
     threat      = { { 1.0, 1.0, 0.47 }, { 1.0, 0.6, 0.0 }, { 1.0, 0.0, 0.0 } },
 }
 
@@ -66,6 +68,9 @@ ns.DEFAULTS = {
     partyInRaid   = false,
     partyDebuffs  = true,
     partyBuffs    = true,     -- one row of buffs under each party member
+    partyHorizontal = false,  -- party members side by side instead of stacked
+    healPrediction = true,    -- incoming heals continue the health fill
+    bigMyAuras    = true,     -- my own auras on the target drawn larger
     rangeFade     = true,
     threatBorder  = true,
     healthFX      = true,
@@ -78,6 +83,13 @@ ns.DEFAULTS = {
     plateTankMode = false,
     plateFadeOthers = true,
     plateQuest    = true,
+    kickWarn      = true,     -- warn about interruptible enemy casts (plates, target, focus)
+    kickTargetOnly = false,   -- nameplates: only my target and focus
+    kickSound     = false,    -- a sound when such a cast starts
+    friendlyPlates = "name",  -- friendly nameplates: "default" (game look), "name", "bar" (name + thin bar)
+    friendlyHideInstance = false, -- hide friendly nameplates inside instances (game setting)
+    plateOverlap  = true,     -- nameplates stay over their units instead of stacking upward (game setting)
+    cvarBackup    = {},       -- my values of game settings changed for friendly plates
     plateScale    = 1.0,
     positions     = {},
 }
@@ -214,6 +226,10 @@ function ns:InitDB()
         if db.enabled[key] == nil then db.enabled[key] = value end
     end
     if type(db.positions) ~= "table" then db.positions = {} end
+    if type(db.cvarBackup) ~= "table" then db.cvarBackup = {} end
+    if db.friendlyPlates ~= "default" and db.friendlyPlates ~= "bar" then db.friendlyPlates = "name" end
+    -- per-frame size on top of the overall scale (Ctrl + mouse wheel on a frame)
+    if type(db.frameScales) ~= "table" then db.frameScales = {} end
     db.scale = math.max(0.6, math.min(1.6, tonumber(db.scale) or 1))
     db.locked = true -- always start locked; unlocking is a per-session edit mode
     self.db = db
