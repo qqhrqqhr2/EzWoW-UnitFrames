@@ -454,9 +454,20 @@ local function rootKeyOf(f)
     return (f.sizeKey == "party") and "party" or f.key
 end
 
+-- Ctrl + wheel resizes a frame only when the player hasn't bound Ctrl + wheel to
+-- anything (healers often bind spells there; the frame would swallow the wheel).
+local function ctrlWheelBound()
+    if type(GetBindingAction) ~= "function" then return false end
+    for _, key in ipairs({ "CTRL-MOUSEWHEELUP", "CTRL-MOUSEWHEELDOWN" }) do
+        local ok, action = pcall(GetBindingAction, key)
+        if ok and type(action) == "string" and action ~= "" then return true end
+    end
+    return false
+end
+
 local function setWheel(f, on)
     if not f or ns.InCombat() then return end
-    on = on and true or false
+    on = on and not ctrlWheelBound() and true or false
     if quick.wheelOn == f and on then return end
     pcall(f.EnableMouseWheel, f, on)
     quick.wheelOn = on and f or nil
@@ -738,6 +749,7 @@ local OTHER_EVENTS = {
     UNIT_PET = function(unit) if unit == "player" then updateKey("pet") end end,
     GROUP_ROSTER_UPDATE = function() updateAllParty() updateIconsAll() end,
     PARTY_LEADER_CHANGED = updateIconsAll,
+    PLAYER_ROLES_ASSIGNED = updateIconsAll,
     RAID_TARGET_UPDATE = updateIconsAll,
     PLAYER_UPDATE_RESTING = updateIconsAll,
     PLAYER_REGEN_DISABLED = function()

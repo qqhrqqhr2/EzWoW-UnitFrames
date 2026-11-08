@@ -399,6 +399,8 @@ SlashCmdList.EZWOWUNITFRAMES = function(msg)
         ns.SetLocked(true)
     elseif msg == "plates" or msg == "이름표" then
         if ns.DescribeTargetPlate then ns.DescribeTargetPlate() end
+    elseif msg == "mouse" or msg == "마우스" then
+        if ns.WatchMouseFocus then ns.WatchMouseFocus() end
     elseif msg == "reset" or msg == "초기화" then
         ns.ResetPositions()
     elseif msg:match("^lang") then

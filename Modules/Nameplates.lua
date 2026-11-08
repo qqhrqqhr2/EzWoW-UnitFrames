@@ -63,7 +63,9 @@ local function createWidget()
 
     w.raidIcon = w:CreateTexture(nil, "OVERLAY")
     w.raidIcon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-    w.raidIcon:SetSize(18, 18)
+    -- right of the bar: the debuff row above the name would cover it (the
+    -- engine draws those icons, so their count can't be read to move it)
+    w.raidIcon:SetSize(22, 22)
     w.raidIcon:SetPoint("LEFT", w, "RIGHT", 4, 0)
     w.raidIcon:Hide()
 
@@ -249,13 +251,7 @@ local function updateDebuffs(w)
 end
 
 local function updateRaidIcon(w)
-    local index = Plain(GetRaidTargetIndex, w.unit)
-    if index and type(SetRaidTargetIconTexture) == "function" then
-        SetRaidTargetIconTexture(w.raidIcon, index)
-        w.raidIcon:Show()
-    else
-        w.raidIcon:Hide()
-    end
+    ns.SetRaidIcon(w.raidIcon, w.unit)
 end
 
 local function updateTarget(w)
@@ -503,6 +499,12 @@ local function createFriendWidget()
     ns.UIKit:ApplyBackdrop(w.health, 1, 0)
     w.health:SetBackdropColor(rgba(ns.Style.barBg))
     w.health:SetBackdropBorderColor(0, 0, 0, 1)
+    -- raid target mark above the name (the default plate that showed it is hidden)
+    w.raidIcon = w:CreateTexture(nil, "OVERLAY")
+    w.raidIcon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
+    w.raidIcon:SetSize(24, 24)
+    w.raidIcon:SetPoint("BOTTOM", w.name, "TOP", 0, 2)
+    w.raidIcon:Hide()
     w:Hide()
     return w
 end
@@ -588,6 +590,7 @@ local function updateFriend(w)
     layoutFriend(w)
     updateFriendName(w)
     updateFriendHealth(w)
+    updateRaidIcon(w)
 end
 
 -- The game's own settings for instances (set out of combat only). The user's
@@ -843,11 +846,87 @@ function ns.DescribeTargetPlate()
         ns.Print(string.format("%s %s forbidden=%s visible=%s alpha=%s", label, tostring(okN and name or "?"),
             tostring(okF and forbidden), tostring(okV and visible), tostring(okA and alpha)))
     end
-    describe(plate, "plate")
+    local function rect(frame, label)
+        local ok, l, b, wd, ht = pcall(frame.GetRect, frame)
+        local okM, mouse = pcall(frame.IsMouseEnabled, frame)
+        local okS, scale = pcall(frame.GetEffectiveScale, frame)
+        if ok and l then
+            ns.Print(string.format("  %s rect=%.0f,%.0f %.0fx%.0f scale=%.2f mouse=%s", label, l, b, wd or 0, ht or 0,
+                okS and scale or 0, tostring(okM and mouse)))
+        end
+    end
+    describe(plate, "plate"); rect(plate, "plate")
     local w = active["target"]
-    for i, part in ipairs(defaultParts(plate, w)) do describe(part, "part" .. i) end
-    if w then describe(w, "ezwow") end
+    for i, part in ipairs(defaultParts(plate, w)) do describe(part, "part" .. i); rect(part, "part" .. i) end
+    if w then describe(w, "ezwow"); rect(w, "ezwow") end
     ns.Print("blocked=" .. tostring(blocked))
+    -- for 6 seconds: does the game see a "mouseover" unit where the mouse is?
+    local ticks = 0
+    local ticker
+    ticker = C_Timer.NewTicker(1, function()
+        ticks = ticks + 1
+        local over = Plain(UnitExists, "mouseover") and true or false
+        local isTarget = over and Plain(UnitIsUnit, "mouseover", "target") and true or false
+        local x, y = GetCursorPosition()
+        local s = UIParent:GetEffectiveScale()
+        ns.Print(string.format("mouse %.0f,%.0f mouseover=%s (target=%s)", x / s, y / s, tostring(over), tostring(isTarget)))
+        if ticks >= 6 then ticker:Cancel() end
+    end)
+end
+
+-- /ezuf mouse : for 10 seconds, what is under the mouse and whether the game
+-- sees a "mouseover" unit there (to find what blocks mouseover casting)
+local function frameLabel(frame)
+    if not frame then return "-" end
+    local parts = {}
+    local cur = frame
+    for _ = 1, 4 do
+        if not cur then break end
+        local okN, name = pcall(cur.GetName, cur)
+        local okT, kind = pcall(cur.GetObjectType, cur)
+        local okM, mouse = pcall(cur.IsMouseEnabled, cur)
+        local label = (okN and type(name) == "string" and not IsSecret(name) and name) or (okT and kind) or "?"
+        if okM and mouse then label = label .. "*" end
+        parts[#parts + 1] = label
+        local okP, parent = pcall(cur.GetParent, cur)
+        cur = okP and parent or nil
+    end
+    return table.concat(parts, " < ")
+end
+
+function ns.WatchMouseFocus()
+    local ticks, ticker = 0, nil
+    ns.Print("mouse check: 10 s (* = takes the mouse)")
+    ticker = C_Timer.NewTicker(1, function()
+        ticks = ticks + 1
+        local focus
+        if type(GetMouseFoci) == "function" then
+            local ok, list = pcall(GetMouseFoci)
+            focus = ok and type(list) == "table" and list[1] or nil
+        elseif type(GetMouseFocus) == "function" then
+            local ok, f = pcall(GetMouseFocus)
+            focus = ok and f or nil
+        end
+        local over = Plain(UnitExists, "mouseover") and true or false
+        local name = over and Plain(UnitName, "mouseover") or nil
+        -- what the macro conditions [help] / [nodead] see, and other reasons a heal can't land
+        local info = ""
+        if over then
+            local function flag(fn, ...)
+                if type(fn) ~= "function" then return "?" end
+                local ok, v = pcall(fn, ...)
+                if not ok or IsSecret(v) then return "?" end
+                return tostring(v)
+            end
+            info = string.format(" help=%s dead=%s visible=%s connected=%s phase=%s pvp=%s",
+                flag(UnitCanAssist, "player", "mouseover"), flag(UnitIsDeadOrGhost, "mouseover"),
+                flag(UnitIsVisible, "mouseover"), flag(UnitIsConnected, "mouseover"),
+                flag(UnitPhaseReason, "mouseover"), flag(UnitIsPVP, "mouseover"))
+        end
+        ns.Print(string.format("%d) mouseover=%s %s%s | %s", ticks, tostring(over),
+            (type(name) == "string" and name) or "", info, frameLabel(focus)))
+        if ticks >= 10 then ticker:Cancel() end
+    end)
 end
 
 function ns.RefreshNameplates()
@@ -947,6 +1026,7 @@ eventFrame:SetScript("OnEvent", function(self, event, unit)
         end
     elseif event == "RAID_TARGET_UPDATE" then
         for _, w in pairs(active) do updateRaidIcon(w) end
+        for _, w in pairs(friends) do updateRaidIcon(w) end
     elseif event == "UNIT_THREAT_SITUATION_UPDATE" or event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_REGEN_DISABLED" then
         for _, w in pairs(active) do updateColor(w) end
     else

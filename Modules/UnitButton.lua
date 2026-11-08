@@ -183,6 +183,9 @@ function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
     f:SetAttribute("*type1", "target")
     f:SetAttribute("*type2", "togglemenu")
     f:RegisterForClicks("AnyUp")
+    -- the frame only uses the left and right buttons: middle and side buttons go
+    -- through to the player's key bindings (mouseover heals bound to them)
+    if f.SetPassThroughButtons then pcall(f.SetPassThroughButtons, f, "MiddleButton", "Button4", "Button5") end
     f:SetMovable(true)
     f:SetClampedToScreen(true)
     ns.UIKit:ApplyBackdrop(f, 1, 0)
@@ -253,6 +256,10 @@ function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
     f.leaderIcon:SetSize(12, 12)
     f.leaderIcon:SetPoint("CENTER", f, "TOPLEFT", 8, 0)
     f.leaderIcon:Hide()
+    f.roleIcon = overlay:CreateTexture(nil, "OVERLAY")
+    f.roleIcon:SetSize(14, 14)
+    f.roleIcon:SetPoint("CENTER", f, "TOPLEFT", 22, 0)
+    f.roleIcon:Hide()
     if unit == "player" then
         f.stateIcon = overlay:CreateTexture(nil, "OVERLAY")
         f.stateIcon:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
@@ -306,6 +313,13 @@ function ns.LayoutUnitButton(f)
     elseif f.portrait then
         f.portrait:Hide()
         f.portraitBg:Hide()
+    end
+    -- raid target mark above the portrait, or on the top edge without one
+    f.raidIcon:ClearAllPoints()
+    if portraitW > 0 then
+        f.raidIcon:SetPoint("BOTTOM", f.portrait, "TOP", 0, 2)
+    else
+        f.raidIcon:SetPoint("CENTER", f, "TOP", 0, 1)
     end
 
     local top = -1
@@ -675,18 +689,62 @@ function ns.UpdatePortrait(f)
     if type(SetPortraitTexture) == "function" then pcall(SetPortraitTexture, f.portrait, f.unit) end
 end
 
+-- The raid target index reads secret on current clients. type() tells nil
+-- from a mark without reading it, and the default texture function accepts
+-- the secret index as it is.
+function ns.SetRaidIcon(texture, unit)
+    local index = unit and type(GetRaidTargetIndex) == "function" and GetRaidTargetIndex(unit)
+    if type(index) == "number" and type(SetRaidTargetIconTexture) == "function"
+        and pcall(SetRaidTargetIconTexture, texture, index) then
+        texture:Show()
+    else
+        texture:Hide()
+    end
+end
+
+local ROLE_ATLAS = { TANK = "roleicon-tiny-tank", HEALER = "roleicon-tiny-healer" }
+local SECRET_ROLE_MAP = { TANK = ROLE_ATLAS.TANK, HEALER = ROLE_ATLAS.HEALER, DAMAGER = "", VEHICLE = "" }
+
+-- Tank / healer mark. A role that reads secret (a unit the client hides) is
+-- painted by the default secret-safe role painter onto a texture of our own.
+function ns.SetRoleIcon(f, unit)
+    local icon, secretIcon = f.roleIcon, f.roleIconSecret
+    local role = unit and type(UnitGroupRolesAssigned) == "function" and ns.Raw(UnitGroupRolesAssigned, unit)
+    if IsSecret(role) then
+        icon:Hide()
+        local paint = UnitFrameUtil and UnitFrameUtil.UpdateUnitFrameRoleIcon
+        if type(paint) ~= "function" then
+            if secretIcon then secretIcon:Hide() end
+            return
+        end
+        if not secretIcon then
+            secretIcon = icon:GetParent():CreateTexture(nil, "OVERLAY")
+            secretIcon:SetAllPoints(icon)
+            f.roleIconSecret = secretIcon
+            f.roleSecretProxy = { roleIcon = secretIcon,
+                optionTable = { displayRoleIcon = true, displayRaidRoleIcon = false, textureMap = SECRET_ROLE_MAP } }
+        end
+        f.roleSecretProxy.unit = unit
+        if not pcall(paint, f.roleSecretProxy) then secretIcon:Hide() end
+        return
+    end
+    if secretIcon then secretIcon:Hide() end
+    local atlas = ROLE_ATLAS[role]
+    if atlas and pcall(icon.SetAtlas, icon, atlas) then
+        icon:Show()
+    else
+        icon:Hide()
+    end
+end
+
 function ns.UpdateIcons(f)
     local unit = f.unit
     local exists = unitExists(f)
-    local index = exists and Plain(GetRaidTargetIndex, unit)
-    if index and type(SetRaidTargetIconTexture) == "function" then
-        SetRaidTargetIconTexture(f.raidIcon, index)
-        f.raidIcon:Show()
-    else
-        f.raidIcon:Hide()
-    end
+    ns.SetRaidIcon(f.raidIcon, exists and unit or nil)
     local leader = exists and (Plain(UnitIsGroupLeader, unit)) and (Plain(IsInGroup) or false)
     f.leaderIcon:SetShown(leader and true or false)
+    -- tank / healer mark of group members
+    ns.SetRoleIcon(f, exists and Plain(IsInGroup) and unit or nil)
     if f.stateIcon then
         if Plain(UnitAffectingCombat, "player") then
             f.stateIcon:SetTexCoord(0.5, 1, 0, 0.49)
