@@ -3,7 +3,7 @@
 내 캐릭터·대상·대상의 대상·주시 대상·소환수·파티 체력바와 적·아군 이름표를 깔끔한 EzWoW 스타일로 바꿉니다.
 Clean EzWoW-style player, target, target of target, focus, pet and party frames, plus enemy and friendly nameplates.
 
-- 명령어 / Commands: `/ezuf`, `/유닛프레임` (`/ezuf 이동` · `/ezuf 잠금` · `/ezuf 초기화`)
+- 명령어 / Commands: `/ezuf`, `/유닛프레임` (`/ezuf 이동` · `/ezuf 잠금` · `/ezuf 초기화` · `/ezuf lang ko`)
 
 ## 한국어
 
@@ -20,7 +20,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - 왼쪽 클릭은 대상 선택, 오른쪽 클릭은 메뉴입니다. 마우스를 올리면 툴팁이 나옵니다.
 
 ### 편의 기능
-- 직업 색 체력바, 체력 글자 형식 선택(현재 · %, 현재 / 최대, 현재, %, 부족량)
+- 직업 색 체력바, 체력 글자 형식 선택(현재 · %, 현재 / 최대, 현재, %, 부족량, 표시 안 함). 큰 프레임 · 작은 프레임 · 파티를 따로 고릅니다.
 - **기력 틱·마나 5초 규칙**: 기력 바 위의 불꽃이 2초 기력 틱을 따라갑니다. 마나를 쓰면 금색 불꽃이 5초를 센 뒤 2초 마나 틱을 보여 줍니다.
 - 대상·주시 대상 시전바(프레임 위, 차단할 수 없는 주문은 회색 + 방패 표시, 차단되면 "차단됨")
 - 대상·주시 대상 버프·디버프(프레임 아래, 내가 건 것은 금색 테두리, 내 디버프만 보기 옵션), 내 캐릭터 버프·디버프
@@ -37,7 +37,8 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - **퀘스트 몹 표시**: 퀘스트 목표인 적의 이름표 위에 "!"가 나타납니다.
 - 현재 대상은 테두리 강조, 대상이 아닌 이름표는 흐리게, 이름표 크기 조절
 - **차단 경고**: 차단할 수 있는 적의 시전은 이름표·대상·주시 시전바에 깜박이는 테두리와 "차단!"으로 알려 줍니다. 내 차단 기술이 재사용 대기 중이면 보라색입니다. 이름표는 대상·주시만 경고하는 옵션과 소리 옵션이 있습니다.
-- **아군 이름표**: 기본은 이름만(플레이어는 직업 색, NPC는 관계 색, 파티원은 조금 크게). 이름 + 얇은 체력바나 기본 모양도 고를 수 있습니다. 던전 안에서는 게임 설정만 쓰며, 아군 이름표를 숨기는 옵션이 있습니다.
+- **아군 이름표**: 기본은 이름만(플레이어는 직업 색, NPC는 관계 색). 파티·공격대원은 이름이 더 크고 왼쪽에 파티 표시(파티장은 왕관)가 붙습니다. 이름 + 얇은 체력바나 기본 모양도 고를 수 있습니다. 던전 안에서는 게임 설정만 쓰며, 아군 이름표를 숨기는 옵션이 있습니다.
+- **이름표 겹쳐 표시**(기본 켬): 이름표가 위로 쌓여 밀려나지 않고 각자 유닛 머리 위에 그대로 있습니다.
 - 게임 기본 이름표의 위치·클릭은 그대로 두고 모양만 바꿉니다.
 
 ### 위치·크기
@@ -60,7 +61,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - Left-click targets, right-click opens the menu, mouse-over shows the tooltip.
 
 ### Features
-- Class-coloured health, health text formats (current · %, current / max, current, %, deficit)
+- Class-coloured health, health text formats (current · %, current / max, current, %, deficit, hidden), set separately for big frames, small frames and party
 - **Energy ticks & mana 5-second rule**: a spark on the energy bar follows the 2-second energy tick. After you spend mana, a gold spark counts the 5 seconds, then shows the 2-second mana ticks.
 - Target and focus cast bars (above the frame; uninterruptible casts are grey with a shield; "Interrupted" on kicks)
 - Target and focus buffs and debuffs (below the frame; yours have a gold border; option to show only your debuffs), player buffs and debuffs
@@ -77,7 +78,8 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - **Quest mob marker**: a "!" above enemies you need for a quest.
 - The current target is outlined, other plates can fade, adjustable size
 - **Interrupt warning**: interruptible enemy casts get a pulsing rim and "Kick!" on nameplate, target and focus cast bars, purple while your interrupt is on cooldown. Options: plates warn for target & focus only, and a sound.
-- **Friendly nameplates**: name only by default (class colour for players, reaction colour for NPCs, party members a little larger), or name + thin health bar, or the default look. Inside instances only the game's own settings are used, with an option to hide friendly plates there.
+- **Friendly nameplates**: name only by default (class colour for players, reaction colour for NPCs; party and raid members get a larger name with a group mark, a crown for the leader), or name + thin health bar, or the default look. Inside instances only the game's own settings are used, with an option to hide friendly plates there.
+- **Overlap plates** (on by default): plates stay over their units instead of stacking upward.
 - The game's own plates keep their positions and clicks; only the look changes.
 
 ### Position & size

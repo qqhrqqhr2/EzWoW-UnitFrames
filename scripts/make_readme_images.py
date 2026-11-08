@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 CALL = "#f2b45a"
@@ -128,14 +129,14 @@ T = {
             ("대상 이름표", "테두리 강조, 위협 색(딜러·탱커 기준), 내가 건 디버프, 시전바, 공격대 징표. 대상이 아닌 이름표는 흐리게. 차단할 수 있는 시전은 깜박이는 테두리와 \"차단!\"(내 차단 기술이 재사용 대기 중이면 보라색)."),
             ("체력바 효과", "광택과 가장자리 불꽃, 전투 중 맥동, 낮은 체력 경고. 맞으면 빨간 잔상과 번쩍임, 회복되면 초록 잔상."),
             ("예상 치유량", "들어오는 치유가 체력바 뒤로 이어집니다. 내 치유는 초록, 다른 사람의 치유는 하늘색."),
-            ("아군 이름표", "기본은 이름만: 플레이어는 직업 색, NPC는 관계 색, 파티원은 조금 크게. 이름 + 얇은 체력바, 기본 모양도 고를 수 있습니다. 던전 안에서는 게임 설정(이름만·숨기기)만 씁니다."),
+            ("아군 이름표", "기본은 이름만: 플레이어는 직업 색, NPC는 관계 색. 파티·공격대원은 이름이 더 크고 왼쪽에 파티 표시(파티장은 왕관). 이름 + 얇은 체력바, 기본 모양도 고를 수 있습니다. 던전 안에서는 게임 설정(이름만·숨기기)만 씁니다."),
         ],
         "sLead": "/ezuf · 사용할 프레임, 표시, 이름표, 체력 글자, 크기·위치",
         "sTitle": "설정창",
         "sNotes": [
             ("사용할 프레임", "내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티를 각각 켜고 끕니다."),
             ("표시", "직업 색, 초상화, 시전바, 버프·디버프, 연계 점수, 드루이드 마나, 파티 버프·디버프·사거리, 위협 테두리, 기본 프레임 숨기기, 기력 틱·마나 5초 규칙, 체력바·피격·회복 효과, 예상 치유량, 내가 건 효과 크게, 파티창 가로 배열."),
-            ("이름표", "EzWoW 이름표, 시전바, 내 디버프, 위협 색(탱커 기준), 대상 아닌 이름표 흐리게, 퀘스트 몹 표시, 차단 경고(이름표·대상·주시 시전바, 대상·주시만, 소리), 아군 이름표(기본 모양 · 이름만 · 이름 + 얇은 체력바, 던전 안에서 숨기기), 이름표 크기 70~160%."),
+            ("이름표", "EzWoW 이름표, 시전바, 내 디버프, 위협 색(탱커 기준), 대상 아닌 이름표 흐리게, 퀘스트 몹 표시, 차단 경고(이름표·대상·주시 시전바, 대상·주시만, 소리), 아군 이름표(기본 모양 · 이름만 · 이름 + 얇은 체력바, 던전 안에서 숨기기), 이름표 겹쳐 표시(이름표가 위로 쌓이지 않고 유닛 위에 그대로), 이름표 크기 70~160%."),
             ("체력 글자", "큰 프레임 · 작은 프레임 · 파티 각각: 현재 · %, 현재 / 최대, 현재, %, 부족량, 표시 안 함."),
             ("크기·위치", "프레임 크기 60~160%, 잠금 해제 후 끌어서 이동(전투 시작 시 자동 잠금), 위치 초기화, 언어. 잠긴 상태에서도 Ctrl + 끌기로 이동, Ctrl + 휠로 프레임마다 크기 50~200%(전투 중 제외)."),
         ],
@@ -163,14 +164,14 @@ T = {
             ("Target nameplate", "Outlined, threat colours (DPS or tank view), your debuffs, cast bar, raid marker. Other plates fade. Interruptible casts get a pulsing rim and \"Kick!\" (purple while your interrupt is on cooldown)."),
             ("Health bar effects", "Gloss and an edge spark, a combat pulse, a low-health warning. A red trail and flash when hit, a green trail when healed."),
             ("Incoming heals", "Heals on the way continue the health fill: yours in green, others' in light blue."),
-            ("Friendly nameplates", "Name only by default: class colour for players, reaction colour for NPCs, party members a little larger. Or name + thin health bar, or the default look. Inside instances only the game's own settings are used (names only, hide)."),
+            ("Friendly nameplates", "Name only by default: class colour for players, reaction colour for NPCs. Party and raid members get a larger name with a group mark on the left (a crown for the leader). Or name + thin health bar, or the default look. Inside instances only the game's own settings are used (names only, hide)."),
         ],
         "sLead": "/ezuf · frames, display, nameplates, health text, size & position",
         "sTitle": "Settings",
         "sNotes": [
             ("Frames", "Turn player, target, target of target, focus, pet and party on or off one by one."),
             ("Display", "Class colours, portraits, cast bars, buffs and debuffs, combo points, druid mana, party buffs, debuffs and range, threat border, hide default frames, energy ticks and mana 5-second rule, health bar, hit and heal effects, incoming heals, larger auras you cast, party side by side."),
-            ("Nameplates", "EzWoW plates, cast bars, your debuffs, threat colours (tank view), fade non-target plates, quest mob marker, interrupt warning (plate, target and focus cast bars; target & focus only; sound), friendly plates (default, name only, name + thin bar; hide in instances), plate size 70–160%."),
+            ("Nameplates", "EzWoW plates, cast bars, your debuffs, threat colours (tank view), fade non-target plates, quest mob marker, interrupt warning (plate, target and focus cast bars; target & focus only; sound), friendly plates (default, name only, name + thin bar; hide in instances), overlap plates (plates stay over their units instead of stacking upward), plate size 70–160%."),
             ("Health text", "For big frames, small frames and party: current · %, current / max, current, %, deficit, hidden."),
             ("Size & position", "Frame size 60–160%, unlock to drag (locks again in combat), reset positions, language. Even when locked, Ctrl + drag moves a frame and Ctrl + mouse wheel sizes it 50–200% (not in combat)."),
         ],
@@ -579,9 +580,11 @@ def ui_page(lang, ctx):
     plate(200, 90, t["target"], "13", DIFF_YELLOW, PLATE_THREAT_2, 0.64, 1, target=True,
           debuffs=[("moon", None, 40), ("claw", None, 65)], cast=(t["castTarget"], 0.62))
 
-    # friendly nameplate, default "name only": class-coloured name, party member +2 size, no bar
+    # friendly nameplate, default "name only" (Nameplates.lua layoutFriend): class-coloured name,
+    # party member +5 size, group mark left of the name (the leader's crown), no bar
     parts.append(f'<div class="t" style="left:{X(140):.1f}px;top:{Y(226):.1f}px;transform:translate(-50%,-50%);'
-                 f'font-size:{px(12)};color:{css(CLASS["PALADIN"], 1)};{OUTLINE}">{t["party"][0]}</div>')
+                 f'font-size:{px(15)};color:{css(CLASS["PALADIN"], 1)};{OUTLINE}display:flex;align-items:center;gap:{px(2)}">'
+                 f'<span style="margin-left:{px(-18)}">{crown(16)}</span>{t["party"][0]}</div>')
 
     # callouts (page px)
     def c(x, y):
@@ -602,7 +605,7 @@ def ui_page(lang, ctx):
         c(310, 90),      # 13 target plate
         c(292, -214),    # 14 hit trail on the target (below its health bar)
         c(-534, party_y[1]),  # 15 heal prediction on a party member
-        c(205, 226),     # 16 friendly nameplate
+        c(222, 226),     # 16 friendly nameplate
     ]
     for i, (x, y) in enumerate(calls, 1):
         parts.append(f'<div class="call" style="left:{x - 15:.0f}px;top:{y - 15:.0f}px">{i}</div>')
@@ -694,6 +697,7 @@ def settings_page(lang, ctx):
         p.append(btn(150, y_btn, 27, 27, "-", size=16))
         p.append(text(150 + 27 + 4 + 26, y_btn + 13.5, value, 12, body_c, anchor="center"))
         p.append(btn(150 + 27 + 60, y_btn, 27, 27, "+", size=16))
+    check(300, 668, L["opt_plateOverlap"], dflt["plateOverlap"])
     stepper(L["plateScale"], 672, 665, "100%")
     section("secText", 700)
     for x, lk, mode in ((20, "textBig", "curpct"), (162, "textSmall", "percent"), (304, "textParty", "percent")):
@@ -744,10 +748,28 @@ def find_chrome():
 def render(chrome, html, out_png, height, tmp):
     page = Path(tmp) / (out_png.stem + ".html")
     page.write_text(html, encoding="utf-8")
-    subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
-                    f"--user-data-dir={Path(tmp) / 'chrome_profile'}", f"--window-size={PAGE_W},{int(height)}",
-                    "--virtual-time-budget=2000", f"--screenshot={out_png}", page.as_uri()],
-                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    cmd = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
+           f"--user-data-dir={Path(tmp) / 'chrome_profile'}", f"--window-size={PAGE_W},{int(height)}",
+           "--virtual-time-budget=2000", f"--screenshot={out_png}", page.as_uri()]
+    # headless Chrome now and then keeps running after it wrote the screenshot:
+    # stop it then (with its child processes); retry when there is no new picture
+    for attempt in range(3):
+        start = time.time()
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            if proc.wait(timeout=60) == 0:
+                return
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                proc.kill()
+            proc.wait()
+            if out_png.exists() and out_png.stat().st_mtime >= start and out_png.stat().st_size > 0:
+                return
+        print("  chrome did not finish, retrying", out_png.name)
+    sys.exit(f"Chrome did not finish {out_png.name}")
 
 
 def main(root: Path):
