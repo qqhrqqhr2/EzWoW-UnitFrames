@@ -21,7 +21,7 @@
 ## Notes-zhCN: 简洁的玩家、目标、目标的目标、焦点、宠物与队伍框体。(/ezuf)
 ## Notes-zhTW: 簡潔的玩家、目標、目標的目標、專注目標、寵物與隊伍框架。(/ezuf)
 ## Author: qqhrqqhr2
-## Version: 1.0.3
+## Version: 1.0.4
 ## Category: EzWoW
 ## IconTexture: Interface\AddOns\EzWoW-UnitFrames\Media\Icon
 ## SavedVariables: EzWoW_UnitFramesDB, EzWoW_SharedData
