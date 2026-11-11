@@ -1,9 +1,7 @@
-# v1.0.4
+# v1.0.5
 
 ### 한국어
-- 게임패드를 지원합니다. 패드로 EzWoW 창을 다루고, 보기(Create) 버튼으로 화면의 EzWoW 프레임으로 이동합니다.
-- EzWoW 애드온끼리 퀘스트·희귀 몬스터·드롭·채집 기록을 공유합니다(기본 켜짐, `/ezshare`).
+- 공유 기록에서 이름을 모르는 획득처가 "object"로 보이던 문제를 고쳤습니다.
 
 ### English
-- Added gamepad support: EzWoW windows work with a gamepad, and View (Create) moves to the EzWoW frames on screen.
-- EzWoW addons now share quest, rare monster, drop and gathering records (on by default, `/ezshare`).
+- Shared records no longer show unknown sources as "object".
