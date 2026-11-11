@@ -20,6 +20,7 @@
 ## Notes-ruRU: Простые рамки игрока, цели, цели цели, фокуса, питомца и группы. (/ezuf)
 ## Notes-zhCN: 简洁的玩家、目标、目标的目标、焦点、宠物与队伍框体。(/ezuf)
 ## Notes-zhTW: 簡潔的玩家、目標、目標的目標、專注目標、寵物與隊伍框架。(/ezuf)
+## X-License: GPL-3.0
 ## Author: qqhrqqhr2
 ## Version: 1.0.4
 ## Category: EzWoW
