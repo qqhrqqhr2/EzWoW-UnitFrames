@@ -1,7 +1,7 @@
-# v1.0.5
+# v1.0.6
 
 ### 한국어
-- 공유 기록에서 이름을 모르는 획득처가 "object"로 보이던 문제를 고쳤습니다.
+- 다른 EzWoW 사용자와 기록을 주고받는 공유 기능이 동작하지 않던 문제를 수정했습니다.
 
 ### English
-- Shared records no longer show unknown sources as "object".
+- Fixed data sharing with other EzWoW users not working.
