@@ -22,7 +22,7 @@
 ## Notes-zhTW: 簡潔的玩家、目標、目標的目標、專注目標、寵物與隊伍框架。(/ezuf)
 ## X-License: GPL-3.0
 ## Author: qqhrqqhr2
-## Version: 1.0.6
+## Version: 1.0.7
 ## Category: EzWoW
 ## IconTexture: Interface\AddOns\EzWoW-UnitFrames\Media\Icon
 ## SavedVariables: EzWoW_UnitFramesDB, EzWoW_SharedData
