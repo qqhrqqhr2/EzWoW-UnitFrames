@@ -1,7 +1,9 @@
-# v1.0.7
+# v1.0.8
 
 ### 한국어
-- 다른 EzWoW 사용자와 기록을 주고받을 때, 귓속말이 닿지 않는 사람에게 같은 기록을 반복해서 보내지 않습니다. 그 사람이 다시 접속하면 바로 다시 주고받습니다.
+- 상점에서 파는 물건과 던전에서 아이템을 주운 몬스터도 다른 EzWoW 사용자와 기록을 나눕니다.
+- 공유 기록 줄(판매·드롭)이 애드온 언어 설정을 따릅니다.
 
 ### English
-- Record sharing with other EzWoW users no longer keeps whispering players it cannot reach; it picks them up again as soon as they come back online.
+- Shop contents and the monsters that drop items in dungeons are now shared with other EzWoW users too.
+- Shared record lines (sold by, drops from) follow the addon's language setting.
