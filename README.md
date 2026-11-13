@@ -64,7 +64,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 
 ![Settings window](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_en.png)
 
-> In-game screenshots (WoW Forever, Korean client). Character and player names and chat text are blurred.
+> In-game screenshots with the addon set to English. The game client is Korean, so game text such as zone, item and spell names stays Korean. Character and player names and chat text are blurred.
 
 ### Frames
 - Player, target, target of target, focus, pet and party (4). Each can be turned off.
