@@ -13,7 +13,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 
 ![설정창](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
 
-> 애드온 코드의 프레임 크기·색상·문구로 재현한 **예시 화면**입니다. 프레임 간격은 그림에 맞게 좁혔고, 초상화·아이콘은 단순화했으며, 이름은 지어낸 예시입니다.
+> 실제 게임 화면입니다(WoW Forever, 한국어 클라이언트). 캐릭터 · 다른 플레이어 이름과 채팅 내용은 가렸습니다.
 
 ### 프레임
 - 내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티(4명). 각각 켜고 끌 수 있습니다.
@@ -64,7 +64,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 
 ![Settings window](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_en.png)
 
-> These are **mock-ups** rebuilt from the frame sizes, colours and strings in the code. Spacing is tightened to fit, portraits and icons are simplified, and all names are made up.
+> In-game screenshots (WoW Forever, Korean client). Character and player names and chat text are blurred.
 
 ### Frames
 - Player, target, target of target, focus, pet and party (4). Each can be turned off.

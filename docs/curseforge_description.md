@@ -13,7 +13,7 @@ Clean unit frames for WoW Forever: player, target, target of target, focus, pet 
 
 ![Settings window](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_en.png)
 
-*Mock-ups rebuilt from the frame sizes, coordinates, colours and strings in the addon code. Portraits and icons are simplified; all names are made up.*
+*In-game screenshots (WoW Forever, Korean client). Character and player names and chat text are blurred.*
 
 ## Features
 
@@ -81,7 +81,7 @@ WoW Forever용 유닛 프레임입니다. 내 캐릭터·대상·대상의 대�
 
 ![설정창](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
 
-*애드온 코드의 프레임 크기·좌표·색상·문구로 재현한 예시 화면입니다. 초상화·아이콘 그림은 단순화했고, 이름은 지어낸 예시입니다.*
+*실제 게임 화면입니다(WoW Forever, 한국어 클라이언트). 캐릭터 · 다른 플레이어 이름과 채팅 내용은 가렸습니다.*
 
 ## 기능
 
