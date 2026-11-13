@@ -322,6 +322,12 @@ end
 -- Size, row width and filter follow the settings; out of combat only.
 -- New buttons get their size at creation (initializer) and from the group layout;
 -- buttons built earlier are resized once the client allows it (c.ezButtonSize).
+-- the player frame follows playerAuras; target and focus follow targetAuras
+local function auraRowEnabled(f)
+    if f.unit == "player" then return ns.db.playerAuras and true or false end
+    return ns.db.targetAuras and true or false
+end
+
 local function applyContainerConfig(f)
     local c = f.auraContainer
     if not c or ns.InCombat() then return end
@@ -336,8 +342,7 @@ local function applyContainerConfig(f)
         end
     end
     local size = iconSize(f)
-    local enabled = (f.unit == "player") and ns.db.playerAuras or ns.db.targetAuras
-    pcall(c.SetShown, c, enabled and true or false)
+    pcall(c.SetShown, c, auraRowEnabled(f))
     if c.ezShape == "plain" then
         local filter = debuffFilterFor(f)
         if c.ezFilter ~= filter and c.SetAuraGroupFilterString then
@@ -444,8 +449,7 @@ local function updateTargetAuras(f)
         filled[slot] = true
     end
 
-    local enabled = (f.unit == "player") and ns.db.playerAuras or ns.db.targetAuras
-    if enabled and Plain(UnitExists, f.unit) then
+    if auraRowEnabled(f) and Plain(UnitExists, f.unit) then
         local debuffFilter = (ns.db.onlyMyDebuffs and f.unit ~= "player") and "HARMFUL|PLAYER" or "HARMFUL"
         for i = 1, MAX_SCAN do
             local data = getAura(f.unit, i, debuffFilter)

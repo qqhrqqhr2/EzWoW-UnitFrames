@@ -499,6 +499,10 @@ function UIKit:ShowMenu(anchor, items, opts)
     end
     for i = #items + 1, #menu.rows do menu.rows[i]:Hide() end
 
+    -- match the anchor's scale (scaled options window) so widths and the above/below check agree
+    local ps = UIParent:GetEffectiveScale()
+    local as = anchor.GetEffectiveScale and anchor:GetEffectiveScale()
+    menu:SetScale((as and ps and ps > 0) and (as / ps) or 1)
     menu:SetSize(columns * colWidth + 6, perColumn * rowHeight + 6)
     menu:ClearAllPoints()
     local bottom = anchor:GetBottom() or 0

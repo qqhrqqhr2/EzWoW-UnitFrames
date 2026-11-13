@@ -25,7 +25,7 @@
 ## Version: 1.0.8
 ## Category: EzWoW
 ## IconTexture: Interface\AddOns\EzWoW-UnitFrames\Media\Icon
-## SavedVariables: EzWoW_UnitFramesDB, EzWoW_SharedData
+## SavedVariables: EzWoW_UnitFramesDB, EzWoW_SharedData, EzWoW_ShareStore_UnitFrames
 
 Libs\EzWoWGamePad\GamePad.lua
 Libs\EzWoWShare\Share.lua

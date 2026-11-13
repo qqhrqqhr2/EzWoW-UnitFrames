@@ -282,14 +282,30 @@ local function applyPosition(key)
     root:SetPoint("CENTER", UIParent, "CENTER", pos[1] / scale, pos[2] / scale)
 end
 
+-- frames that sit next to another one move along with it, keeping their offset
+-- (each can still be dragged on its own to change that offset)
+local FOLLOWERS = { target = { "targettarget" }, player = { "pet" } }
+
 local function savePosition(key)
     local root = ns.roots[key]
     local cx, cy = root:GetCenter()
     if not cx then return end
     local scale = root:GetScale() or 1
     local ux, uy = UIParent:GetCenter()
-    ns.db.positions[key] = { math.floor(cx * scale - ux + 0.5), math.floor(cy * scale - uy + 0.5) }
+    local old = ns.db.positions[key] or DEFAULT_POS[key]
+    local new = { math.floor(cx * scale - ux + 0.5), math.floor(cy * scale - uy + 0.5) }
+    ns.db.positions[key] = new
     applyPosition(key)
+    if not old then return end
+    local dx, dy = new[1] - old[1], new[2] - old[2]
+    if dx == 0 and dy == 0 then return end
+    for _, follower in ipairs(FOLLOWERS[key] or {}) do
+        local pos = ns.db.positions[follower] or DEFAULT_POS[follower]
+        if pos then
+            ns.db.positions[follower] = { pos[1] + dx, pos[2] + dy }
+            applyPosition(follower)
+        end
+    end
 end
 
 local function layoutParty()

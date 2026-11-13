@@ -468,8 +468,9 @@ function ns.SetBarValue(bar, value, interp)
     return pcall(bar.SetValue, bar, value) and true or false
 end
 
--- A bar's range can't be set from a secret maximum (the call is ignored), so the
--- bar runs 0-100 on the client's percent, which works with secret values.
+-- The health bar runs 0-100 on the client's percent, which works with secret values.
+-- (Checked in game: SetMinMaxValues also accepts a secret maximum - the range becomes
+-- secret - which the incoming-heal bars rely on.)
 -- false when there is no percent (older client): the caller uses the plain values.
 -- The range is only set when it changes (bar.ezTop), so a running fill animation
 -- isn't restarted; code that sets another range clears bar.ezTop.

@@ -72,6 +72,15 @@ function ns:ToggleOptions()
     configFrame:SetBackdropColor(rgba(S.bgPrimary))
     configFrame:SetBackdropBorderColor(rgba(S.border))
 
+    -- shrink the whole window when it is taller than the screen (large UI scale, 768/900-high screens)
+    local function fitToScreen()
+        local h = UIParent and UIParent:GetHeight()
+        local fh = configFrame:GetHeight()
+        if type(h) ~= "number" or h <= 0 or type(fh) ~= "number" or fh <= 0 then return end
+        local s = math.max(0.5, math.min(1, (h - 20) / fh))
+        if math.abs((configFrame:GetScale() or 1) - s) > 0.001 then configFrame:SetScale(s) end
+    end
+
     local top = UIKit:CreateHeader(configFrame, ns.TITLE)
     top.subtitle:SetWidth(340)
     local close = UIKit:CreateCloseButton(top, function() configFrame:Hide() end)
@@ -330,7 +339,12 @@ function ns:ToggleOptions()
         if optionsPanel and optionsPanel.refreshText then optionsPanel.refreshText() end
     end
 
-    configFrame:SetScript("OnShow", ns.RefreshOptions)
+    configFrame:SetScript("OnShow", function() fitToScreen() ns.RefreshOptions() end)
+    -- refit while open when the UI scale or window size changes (events may not exist: pcall)
+    pcall(configFrame.RegisterEvent, configFrame, "UI_SCALE_CHANGED")
+    pcall(configFrame.RegisterEvent, configFrame, "DISPLAY_SIZE_CHANGED")
+    configFrame:SetScript("OnEvent", function(f) if f:IsShown() then fitToScreen() end end)
+    fitToScreen()   -- first open: the frame is created shown, so OnShow does not fire
     ns.RefreshOptions()
     configFrame:Raise()
 end
