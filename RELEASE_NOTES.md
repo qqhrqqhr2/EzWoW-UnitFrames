@@ -1,7 +1,7 @@
-# v1.0.10
+# v1.0.11
 
 ### 한국어
-- 공유 기록의 NPC·오브젝트 이름이 언어 설정에 맞게 나오도록 고쳤습니다.
+- 공유 기록에 상점 NPC의 진영과 위치를 함께 남겨, 판매처 목록에서 다른 진영 상인을 뺄 수 있게 했습니다.
 
 ### English
-- Names of NPCs and objects in shared records now follow the language setting.
+- Shared records now keep the faction and location of shop NPCs, so vendor lists can leave out the other faction's vendors.
