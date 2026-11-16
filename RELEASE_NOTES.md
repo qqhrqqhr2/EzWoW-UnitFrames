@@ -1,11 +1,9 @@
-# v1.0.12
+# v1.0.13
 
 ### 한국어
-- 데이터 공유 방식을 새로 바꿨습니다. 같은 기록을 되풀이해 보내지 않고 상대에게 없는 기록만 주고받아, 공유로 오가는 메시지가 크게 줄었습니다. 예전 버전을 쓰는 사람과도 계속 공유됩니다.
-- 공유 기록의 확인 대기 공간에 남아 있던 이미 확인된 기록을 정리해 저장 데이터가 줄었습니다.
-- /ezshare 창의 사람 탭에서 상대가 쓰는 공유 버전과 EzWoW 애드온 버전을 볼 수 있습니다.
+- `/ezshare` 창 "종류별" 탭에서 다른 사용자에게 받아 지금 쓰고 있는 기록 수와 보이는 곳을 볼 수 있습니다.
+- 공유 기록 처리를 개선했습니다. 애드온을 새로 설치하면 그 애드온의 공유 기록을 처음부터 다시 받고, 퀘스트를 받거나 완료하는 NPC가 여럿이면 모두 기록합니다.
 
 ### English
-- Data sharing works in a new way: records are no longer sent again and again, only what the other player does not have yet, so far fewer sharing messages go around. Sharing with players on older versions continues.
-- Records already confirmed are cleared from the shared-data waiting list, so the saved data is smaller.
-- The Players tab of the /ezshare window shows each player's sharing version and EzWoW addon versions.
+- The /ezshare "By kind" tab now shows how many records from other players are in use and where they show.
+- Improved shared records: installing an addon takes its shared records again from the start, and quests with several giver or turn-in NPCs keep all of them.
