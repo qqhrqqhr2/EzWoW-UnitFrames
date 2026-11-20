@@ -1,3 +1,7 @@
-# v1.0.17
+# v1.0.18
 
-- 정식 서버에 맞게 표시 내용을 갱신했습니다. / Updated displayed text for the live realm.
+### 한국어
+- 접속 직후 공유용 채널이 공개 채널의 번호(1번)를 차지할 수 있던 문제를 고쳤습니다.
+
+### English
+- Fixed the data-sharing channel possibly taking General's number (1) right after login.
