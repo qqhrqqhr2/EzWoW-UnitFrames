@@ -16,7 +16,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 > 실제 게임 화면입니다(WoW Forever, 한국어 클라이언트). 캐릭터 · 다른 플레이어 이름과 채팅 내용은 가렸습니다.
 
 ### 프레임
-- 내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티(4명). 각각 켜고 끌 수 있습니다.
+- 내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티(나 + 4명). 각각 켜고 끌 수 있습니다.
 - 왼쪽 클릭은 대상 선택, 오른쪽 클릭은 메뉴입니다. 마우스를 올리면 툴팁이 나옵니다.
 
 ### 편의 기능
@@ -29,6 +29,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - 연계 점수(도적·드루이드), 변신 중 드루이드 마나
 - 파티원 버프 줄(프레임 아래)·디버프 아이콘(오른쪽 4개)과 내가 해제할 수 있는 디버프 테두리 표시, 사거리 밖 파티원 흐리게
 - 파티창 가로 배열(선택): 파티원을 옆으로 나란히 놓고 디버프는 프레임 위에 표시합니다.
+- 파티창에 나도 표시(기본 켜짐, 파티 중일 때), 역할 순서(기본 켜짐): 1번 탱커, 2번 치유, 나머지 딜러. 정해진 역할이 없으면 나 → 파티 순서입니다. 파티원이 들어오고 나가거나 역할이 바뀌면 전투 중에도 바로 다시 놓습니다.
 - **체력바 효과**: 광택·전투 중 맥동·낮은 체력 경고, 맞을 때 빨간 잔상과 번쩍임, 회복 때 초록 잔상
 - 위협 수준 테두리, 공격대 징표·파티장·전투·휴식 아이콘, 정예·희귀 표시
 
@@ -68,7 +69,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 > In-game screenshots with the addon set to English. The game client is Korean, so game text such as zone, item and spell names stays Korean. Character and player names and chat text are blurred.
 
 ### Frames
-- Player, target, target of target, focus, pet and party (4). Each can be turned off.
+- Player, target, target of target, focus, pet and party (you + 4). Each can be turned off.
 - Left-click targets, right-click opens the menu, mouse-over shows the tooltip.
 
 ### Features
@@ -81,6 +82,7 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 - Combo points (rogue, druid) and druid mana while shapeshifted
 - Party buff row (under the frame) and debuff icons (4, on the right), a glow for debuffs you can dispel, faded out-of-range members
 - Party side by side (optional): members in a row, with debuffs above each frame.
+- You in the party frames (on by default, while in a group) and role order (on by default): tank first, healer second, then damage dealers. Without assigned roles it is you, then the group order. Members joining, leaving or changing roles are re-sorted at once, also in combat.
 - **Health bar effects**: gloss, a combat pulse and low-health warning, a red trail and flash when hit, a green trail when healed
 - Threat border, raid marker, leader, combat and resting icons, elite and rare tags
 

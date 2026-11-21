@@ -18,7 +18,7 @@ Clean unit frames for WoW Forever: player, target, target of target, focus, pet 
 ## Features
 
 ### Frames
-- Player, target, target of target, focus, pet and party (4). Each can be turned off.
+- Player, target, target of target, focus, pet and party (you + 4). Each can be turned off.
 - Left-click targets, right-click opens the menu, mouse-over shows the tooltip.
 - Class-coloured health, health text formats (current · %, current / max, current, %, deficit, hidden) for big frames, small frames and party, threat border, raid marker, leader, combat and resting icons, elite and rare tags.
 
@@ -40,6 +40,7 @@ Clean unit frames for WoW Forever: player, target, target of target, focus, pet 
 ### Party
 - Narrow party frames with 4 debuffs on the right and a buff row below, a coloured border for debuffs you can dispel, faded out-of-range members.
 - Optional **side-by-side** layout (debuffs then sit above each frame), and party frames in raids.
+- **You in the party frames** and **role order**: tank first, healer second, then damage dealers, re-sorted at once even in combat (both on by default).
 
 ### Nameplates (enemies)
 - Threat colours (DPS or tank view), cast bars, your debuffs, level and elite tags, raid markers.
@@ -86,7 +87,7 @@ WoW Forever용 유닛 프레임입니다. 내 캐릭터·대상·대상의 대�
 ## 기능
 
 ### 프레임
-- 내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티(4명). 각각 켜고 끌 수 있습니다.
+- 내 캐릭터 · 대상 · 대상의 대상 · 주시 대상 · 소환수 · 파티(나 + 4명). 각각 켜고 끌 수 있습니다.
 - 왼쪽 클릭은 대상 선택, 오른쪽 클릭은 메뉴, 마우스를 올리면 툴팁.
 - 직업 색 체력바, 체력 글자 형식(현재 · %, 현재 / 최대, 현재, %, 부족량, 표시 안 함: 큰 프레임 · 작은 프레임 · 파티 각각), 위협 수준 테두리, 공격대 징표·파티장·전투·휴식 아이콘, 정예·희귀 표시.
 
@@ -108,6 +109,7 @@ WoW Forever용 유닛 프레임입니다. 내 캐릭터·대상·대상의 대�
 ### 파티
 - 폭이 좁은 파티 프레임, 오른쪽에 디버프 4개, 아래에 버프 줄, 내가 해제할 수 있는 디버프 테두리, 사거리 밖 파티원 흐리게.
 - **가로 배열**(선택: 디버프는 프레임 위에 표시), 공격대에서도 파티 프레임 표시(선택).
+- **파티창에 나도 표시**, **역할 순서**: 1번 탱커, 2번 치유, 나머지 딜러. 전투 중에도 바로 다시 놓습니다(둘 다 기본 켜짐).
 
 ### 이름표 (적 머리 위 체력바)
 - 위협 수준 색(딜러 기준 / 탱커 기준), 시전바, 내가 건 디버프, 레벨·정예 표시, 공격대 징표.

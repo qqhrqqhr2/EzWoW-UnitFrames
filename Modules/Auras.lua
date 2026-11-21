@@ -156,6 +156,31 @@ local TARGET_COLUMNS, TARGET_MAX = 8, 32
 local GAP = 3
 local GROUP_MAX = 16
 
+-- Out of sight (far away) the client doesn't know who cast an aura: "PLAYER" and
+-- "!PLAYER" then both take every aura, and with a group for my own auras next to
+-- one for the rest each aura showed twice. While the unit is out of sight those
+-- groups of mine (c.ezMine: key + frame count) get no frames; the other group
+-- shows each aura once.
+local function unitInSight(unit)
+    if not unit then return true end
+    return Plain(UnitIsVisible, unit) ~= false
+end
+
+local function applyMineCaps(c, unit)
+    local mine = c and c.ezMine
+    if not mine or type(c.SetAuraGroupMaxFrameCount) ~= "function" then return end
+    local far = not unitInSight(unit)
+    if c.ezFar == far then return end
+    local ok = true
+    for _, g in ipairs(mine) do
+        if not pcall(c.SetAuraGroupMaxFrameCount, c, g.key, far and 0 or g.cap) then ok = false end
+    end
+    if ok then
+        c.ezFar = far
+        pcall(c.UpdateAllAuras, c)
+    end
+end
+
 local function iconSize(f)
     local width = f:GetWidth() or 232
     return math.floor((width - (TARGET_COLUMNS - 1) * GAP) / TARGET_COLUMNS)
@@ -282,15 +307,16 @@ end
 local function groupsFor(f, shape)
     if shape == "big" then
         return {
-            { key = "myDebuffs", filter = "HARMFUL|PLAYER", big = true, debuff = true },
+            { key = "myDebuffs", filter = "HARMFUL|PLAYER", big = true, debuff = true, pair = true },
             { key = "debuffs", filter = "HARMFUL|!PLAYER", newLine = true, debuff = true },
-            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true },
+            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true, pair = true },
             { key = "buffs", filter = "HELPFUL|!PLAYER", newLine = true },
         }
     elseif shape == "bigOnlyMine" then
+        -- pair: a group of mine with a "the rest" group beside it (see applyMineCaps)
         return {
             { key = "myDebuffs", filter = "HARMFUL|PLAYER", big = true, debuff = true },
-            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true },
+            { key = "myBuffs", filter = "HELPFUL|PLAYER", big = true, newLine = true, pair = true },
             { key = "buffs", filter = "HELPFUL|!PLAYER", newLine = true },
         }
     end
@@ -399,7 +425,13 @@ function buildContainer(c, f, yOffset, shape)
     end
     c.ezShape, c.ezGroups = shape, groups
     c.ezFilter, c.ezSize, c.ezButtonSize = debuffFilterFor(f), size, size
+    local mine = {}
+    for _, g in ipairs(groups) do
+        if g.pair then mine[#mine + 1] = { key = g.key, cap = GROUP_MAX } end
+    end
+    c.ezMine, c.ezFar = (#mine > 0) and mine or nil, nil
     c:SetUnit(f.unit)
+    applyMineCaps(c, f.unit)
     pcall(c.UpdateAllAuras, c)
     c:Show()
 end
@@ -534,7 +566,7 @@ local function buildPartyDebuffs(c, f, holder, filters)
         initializeFrame = makeInitializer(f, true),
         layout = partyRowLayout(),
     })
-    c:SetUnit(f.unit)
+    c:SetUnit(f.unit or "none")
     pcall(c.UpdateAllAuras, c)
     c:Show()
 end
@@ -552,6 +584,7 @@ local function buildPartyBuffs(c, f, holder, big)
         c:SetFlowLayoutMaximumLineSize(PARTY_ROW_W + 0.4)
     end
     if big then
+        c.ezMine = { { key = "myBuffs", cap = 8 } }
         c:AddAuraGroup("myBuffs", "HELPFUL|PLAYER", {
             maxFrameCount = 8,
             initializeFrame = makeInitializer(f, false, false, PARTY_BUFF_BIG),
@@ -566,7 +599,8 @@ local function buildPartyBuffs(c, f, holder, big)
             elementSpacing = PARTY_GAP, lineSpacing = PARTY_GAP },
     })
     c.ezBig = big and true or false
-    c:SetUnit(f.unit)
+    c:SetUnit(f.unit or "none")
+    applyMineCaps(c, f.unit)
     pcall(c.UpdateAllAuras, c)
     c:Show()
 end
@@ -631,7 +665,7 @@ local function buildDispelSlots(c, f, filter)
             initializeFrame = makeDispelSlotInit(f, def),
         })
     end
-    c:SetUnit(f.unit)
+    c:SetUnit(f.unit or "none")
     pcall(c.UpdateAllAuras, c)
     c:Show()
 end
@@ -670,11 +704,34 @@ end
 
 local function updatePartyContainers(f)
     applyPartyContainerConfig(f)
+    applyMineCaps(f.partyBuffs, f.unit)
     if f.dispelGlow then f.dispelGlow:Hide() end
     -- same unit token, maybe another member (roster change): re-read
     pcall(f.partyDebuffs.UpdateAllAuras, f.partyDebuffs)
     if f.dispelSlots then pcall(f.dispelSlots.UpdateAllAuras, f.dispelSlots) end
     if f.partyBuffs then pcall(f.partyBuffs.UpdateAllAuras, f.partyBuffs) end
+end
+
+-- The group header gave a party button another member (also in combat): the
+-- engine containers follow the new unit ("none" = empty slot).
+local PARTY_CONTAINERS = { "partyDebuffs", "dispelSlots", "partyBuffs" }
+function ns.SetPartyAuraUnit(f)
+    local unit = f.unit or "none"
+    for _, key in ipairs(PARTY_CONTAINERS) do
+        local c = f[key]
+        if c then
+            pcall(c.SetUnit, c, unit)
+            pcall(c.UpdateAllAuras, c)
+        end
+    end
+    applyMineCaps(f.partyBuffs, f.unit)
+end
+
+-- A unit coming into sight or going out of it (checked twice a second): the
+-- groups of my own auras follow (see applyMineCaps).
+function ns.UpdateAuraSight(f)
+    if f.auraContainer then applyMineCaps(f.auraContainer, f.unit) end
+    if f.partyBuffs then applyMineCaps(f.partyBuffs, f.unit) end
 end
 
 -- Debuffs beside the frame (vertical party) or above it (horizontal party,
@@ -865,6 +922,7 @@ function ns.UpdateAuras(f)
         -- the engine follows UNIT_AURA itself; settings are applied here and a
         -- unit change (new target) is marked for a re-read
         applyContainerConfig(f)
+        applyMineCaps(f.auraContainer, f.unit)
         pcall(f.auraContainer.UpdateAllAuras, f.auraContainer)
         return
     end

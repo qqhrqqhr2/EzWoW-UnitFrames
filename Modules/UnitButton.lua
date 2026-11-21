@@ -176,10 +176,11 @@ end
 
 -- key: saved-position key; unit: unit token; sizeKey: ns.SIZES key
 -- opts: { portraitSide = "LEFT"/"RIGHT", label = locale key for the preview name }
-function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
-    local f = CreateFrame("Button", "EzWoWUF_" .. key, parent or UIParent, "SecureUnitButtonTemplate,BackdropTemplate")
+-- frame: a button made by the group header (it hands out the unit itself)
+function ns.CreateUnitButton(key, unit, sizeKey, opts, parent, frame)
+    local f = frame or CreateFrame("Button", "EzWoWUF_" .. key, parent or UIParent, "SecureUnitButtonTemplate,BackdropTemplate")
     f.key, f.unit, f.sizeKey, f.opts = key, unit, sizeKey, opts or {}
-    f:SetAttribute("unit", unit)
+    if not frame then f:SetAttribute("unit", unit) end
     f:SetAttribute("*type1", "target")
     f:SetAttribute("*type2", "togglemenu")
     f:RegisterForClicks("AnyUp")
@@ -260,7 +261,7 @@ function ns.CreateUnitButton(key, unit, sizeKey, opts, parent)
     f.roleIcon:SetSize(14, 14)
     f.roleIcon:SetPoint("CENTER", f, "TOPLEFT", 22, 0)
     f.roleIcon:Hide()
-    if unit == "player" then
+    if unit == "player" and sizeKey ~= "party" then
         f.stateIcon = overlay:CreateTexture(nil, "OVERLAY")
         f.stateIcon:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
         f.stateIcon:SetSize(16, 16)

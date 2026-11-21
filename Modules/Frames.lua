@@ -8,10 +8,16 @@ local Plain, Raw, IsSecret = ns.Plain, ns.Raw, ns.IsSecret
 
 local TEX = "Interface\\Buttons\\WHITE8X8"
 local PARTY_GAP = 10
+-- The party buttons belong to the game's group header: it puts me and the members
+-- on them (by role when that option is on) and keeps them in order on its own,
+-- also in combat, when addon code may not move these buttons.
+local PARTY_SLOTS = 5                                 -- me + four members
+local PARTY_ROLE_ORDER = "TANK,HEALER,DAMAGER,NONE"   -- tanks, healers, then the rest
 
-ns.frames = {}      -- key -> unit button (player, target, ..., party1..4)
+ns.frames = {}      -- key -> unit button (player, target, ..., party1..5)
 ns.roots = {}       -- key -> movable root (unit button, or the party holder)
 ns.frameList = {}   -- every unit button
+ns.partyButtons = {} -- the group header's buttons in slot order (party1..5)
 
 -- Default spots, offsets from the screen centre (UI units).
 local DEFAULT_POS = {
@@ -308,34 +314,85 @@ local function savePosition(key)
     end
 end
 
+-- Header settings from the options: me in the list, role order, direction, gaps.
+-- Nil values clear an attribute (no grouping = group order with me first).
+local function headerAttributes(horizontal, gap)
+    local byRole = ns.db.partyRoleOrder and true or false
+    return {
+        { "showPlayer", ns.db.partyShowPlayer and true or false },
+        { "groupBy", byRole and "ASSIGNEDROLE" or nil },
+        { "groupingOrder", byRole and PARTY_ROLE_ORDER or nil },
+        { "sortMethod", "INDEX" },
+        { "point", horizontal and "LEFT" or "TOP" },
+        { "xOffset", horizontal and PARTY_GAP or 0 },
+        { "yOffset", horizontal and 0 or -gap },
+    }
+end
+
+-- Hands the members out again (out of combat). Every attribute change makes the
+-- header sort again, so they are set while it is hidden: one sort on showing.
+-- The header sets each button's anchor but never clears the old one, so a button
+-- would keep a point from the last layout (stacked / side by side, edit mode
+-- preview) and sit off to the side: the old points go first.
+local function reshowHeader(header, attrs)
+    local shown = header:IsShown()
+    if shown then header:Hide() end
+    if attrs then
+        for _, a in ipairs(attrs) do header:SetAttribute(a[1], a[2]) end
+    end
+    for _, f in ipairs(ns.partyButtons) do f:ClearAllPoints() end
+    if shown then header:Show() end
+end
+
+local function setHeaderAttributes(header, attrs)
+    for _, a in ipairs(attrs) do
+        if header:GetAttribute(a[1]) ~= a[2] then
+            reshowHeader(header, attrs)
+            return true
+        end
+    end
+    return false
+end
+
+-- Edit mode: every slot shows (empty ones as a preview), placed by hand in slot
+-- order; the header places them again once edit mode ends.
+local function placePreviewSlots(horizontal, step)
+    local header = ns.partyHeader
+    for i, f in ipairs(ns.partyButtons) do
+        f:ClearAllPoints()
+        if horizontal then
+            f:SetPoint("TOPLEFT", header, "TOPLEFT", (i - 1) * step, 0)
+        else
+            f:SetPoint("TOPLEFT", header, "TOPLEFT", 0, -(i - 1) * step)
+        end
+        f:SetShown(f.preview and true or false)
+    end
+end
+
 local function layoutParty()
-    local holder = ns.roots.party
-    if not holder then return end
+    local holder, header = ns.roots.party, ns.partyHeader
+    if not holder or not header then return end
     local size = ns.SIZES.party
     local height = ns.FrameHeight(size)
     -- room for the buff row under each member
     local buffRow = (ns.db.partyBuffs and ns.PartyBuffRow and ns.PartyBuffRow()) or 0
-    if ns.db.partyHorizontal then
+    local horizontal = ns.db.partyHorizontal and true or false
+    local slots = ns.db.partyShowPlayer and PARTY_SLOTS or (PARTY_SLOTS - 1)
+    local gap = horizontal and PARTY_GAP or (PARTY_GAP + buffRow)
+    header:ClearAllPoints()
+    header:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, 0)
+    if horizontal then
         -- side by side; the debuffs sit above each frame (see Auras), buffs below
-        local step = size.w + PARTY_GAP
-        for i = 1, 4 do
-            local f = ns.frames["party" .. i]
-            f:ClearAllPoints()
-            f:SetPoint("TOPLEFT", holder, "TOPLEFT", (i - 1) * step, 0)
-        end
-        holder:SetSize(4 * size.w + 3 * PARTY_GAP, height + buffRow)
+        holder:SetSize(slots * size.w + (slots - 1) * PARTY_GAP, height + buffRow)
     else
-        -- room for the buff row under each member
-        local gap = PARTY_GAP + buffRow
-        for i = 1, 4 do
-            local f = ns.frames["party" .. i]
-            f:ClearAllPoints()
-            f:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, -(i - 1) * (height + gap))
-        end
-        holder:SetSize(size.w, 4 * height + 3 * gap)
+        holder:SetSize(size.w, slots * height + (slots - 1) * gap)
     end
-    for i = 1, 4 do
-        if ns.PlacePartyDebuffs then ns.PlacePartyDebuffs(ns.frames["party" .. i]) end
+    setHeaderAttributes(header, headerAttributes(horizontal, gap))
+    if not ns.db.locked then
+        placePreviewSlots(horizontal, horizontal and (size.w + PARTY_GAP) or (height + gap))
+    end
+    for _, f in ipairs(ns.partyButtons) do
+        if ns.PlacePartyDebuffs then ns.PlacePartyDebuffs(f) end
     end
 end
 
@@ -396,10 +453,25 @@ function ns.ApplyVisibility()
     ns.RunAfterCombat("visibility", function()
         local db = ns.db
         local editing = not db.locked
+        local slots = db.partyShowPlayer and PARTY_SLOTS or (PARTY_SLOTS - 1)
         for _, f in ipairs(ns.frameList) do
-            local group = f.sizeKey == "party" and "party" or f.key
-            f.preview = editing and db.enabled[group] or false
-            setWatched(f, db.enabled[group])
+            if f.inHeader then
+                -- the header shows and hides its buttons; edit mode shows each slot
+                f.preview = editing and db.enabled.party and f.slot <= slots or false
+                if editing then f:SetShown(f.preview) end
+            else
+                local on = db.enabled[f.key] and true or false
+                f.preview = editing and on
+                setWatched(f, on)
+            end
+        end
+        local header = ns.partyHeader
+        if header and header.ezEditing ~= editing then
+            header.ezEditing = editing
+            -- edit mode: the slots go in order by hand; afterwards the header
+            -- hands out the members again (shown once more = sorted again)
+            layoutParty()
+            if not editing then reshowHeader(header) end
         end
         local holder = ns.roots.party
         if holder then
@@ -658,10 +730,46 @@ function ns.BuildAllFrames()
     local holder = CreateFrame("Frame", "EzWoWUF_PartyHolder", UIParent, "SecureHandlerStateTemplate")
     holder:SetMovable(true)
     holder:SetClampedToScreen(true)
-    for i = 1, 4 do
-        local f = ns.CreateUnitButton("party" .. i, "party" .. i, "party", { label = "party" }, holder)
-        ns.CreatePartyAuras(f)
-        register(f)
+    holder:Show()
+    -- the game's group header: party units only (in a raid: my own group), with me
+    -- when that option is on, nothing while solo
+    local size = ns.SIZES.party
+    local header = CreateFrame("Frame", "EzWoWUF_PartyHeader", holder, "SecureGroupHeaderTemplate")
+    header:SetPoint("TOPLEFT", holder, "TOPLEFT", 0, 0)
+    header:SetAttribute("template", "SecureUnitButtonTemplate,BackdropTemplate")
+    header:SetAttribute("templateType", "Button")
+    header:SetAttribute("initialConfigFunction", ("self:SetWidth(%d) self:SetHeight(%d)"):format(
+        size.w, ns.FrameHeight(size)))
+    header:SetAttribute("showParty", true)
+    header:SetAttribute("showRaid", false)
+    header:SetAttribute("showSolo", false)
+    header:SetAttribute("unitsPerColumn", PARTY_SLOTS)
+    header:SetAttribute("maxColumns", 1)
+    for _, a in ipairs(headerAttributes(false, PARTY_GAP)) do header:SetAttribute(a[1], a[2]) end
+    ns.partyHeader = header
+    -- all five buttons are made now, out of combat: a negative starting index
+    -- makes the header build them, then the real index hides the empty ones
+    header:SetAttribute("startingIndex", 1 - PARTY_SLOTS)
+    header:Show()
+    header:SetAttribute("startingIndex", 1)
+    for i = 1, PARTY_SLOTS do
+        local child = header[i] or header:GetAttribute("child" .. i)
+        if child then
+            local f = ns.CreateUnitButton("party" .. i, child:GetAttribute("unit"), "party", { label = "party" }, header, child)
+            f.inHeader, f.slot = true, i
+            ns.CreatePartyAuras(f)
+            -- the header gave the button another member (also in combat)
+            f:HookScript("OnAttributeChanged", function(self, name, value)
+                if name ~= "unit" then return end
+                if value ~= self.unit then
+                    self.unit = value
+                    if ns.SetPartyAuraUnit then ns.SetPartyAuraUnit(self) end
+                end
+                if self:IsShown() then ns.UpdateFrame(self) end
+            end)
+            register(f)
+            ns.partyButtons[#ns.partyButtons + 1] = f
+        end
     end
 
     for _, key in ipairs({ "player", "target", "targettarget", "focus", "pet" }) do
@@ -737,7 +845,7 @@ local function updateKey(key)
 end
 
 local function updateAllParty()
-    for i = 1, 4 do updateKey("party" .. i) end
+    for _, f in ipairs(ns.partyButtons) do updateKey(f.key) end
 end
 
 local function updateIconsAll()
@@ -745,6 +853,7 @@ local function updateIconsAll()
         if f:IsShown() then ns.UpdateIcons(f) end
     end
 end
+
 
 local function updateThreatAll()
     for _, f in ipairs(ns.frameList) do
@@ -763,7 +872,17 @@ local OTHER_EVENTS = {
     PLAYER_FOCUS_CHANGED = function() updateKey("focus") end,
     UNIT_TARGET = function(unit) if unit == "target" then updateKey("targettarget") end end,
     UNIT_PET = function(unit) if unit == "player" then updateKey("pet") end end,
-    GROUP_ROSTER_UPDATE = function() updateAllParty() updateIconsAll() end,
+    GROUP_ROSTER_UPDATE = function()
+        updateAllParty()
+        updateIconsAll()
+        -- edit mode: the header has just handed out the members again; the
+        -- preview slots go back in place right after it
+        if not ns.db.locked and C_Timer and type(C_Timer.After) == "function" then
+            C_Timer.After(0, function()
+                if not ns.db.locked then ns.ApplyLayout() end
+            end)
+        end
+    end,
     PARTY_LEADER_CHANGED = updateIconsAll,
     PLAYER_ROLES_ASSIGNED = updateIconsAll,
     RAID_TARGET_UPDATE = updateIconsAll,
@@ -812,9 +931,16 @@ function ns.StartEvents()
         end
         if elapsedRange >= 0.5 then
             elapsedRange = 0
-            for i = 1, 4 do
-                local f = ns.frames["party" .. i]
-                if f and f:IsShown() then ns.UpdateRange(f) end
+            for _, f in ipairs(ns.partyButtons) do
+                if f:IsShown() then
+                    ns.UpdateRange(f)
+                    if ns.UpdateAuraSight then ns.UpdateAuraSight(f) end
+                end
+            end
+            -- target / focus may be someone far away too (picked from the party frames)
+            for _, key in ipairs({ "target", "focus" }) do
+                local f = ns.frames[key]
+                if f and f:IsShown() and ns.UpdateAuraSight then ns.UpdateAuraSight(f) end
             end
         end
     end)
