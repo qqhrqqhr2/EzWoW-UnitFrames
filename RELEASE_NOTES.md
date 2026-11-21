@@ -1,7 +1,9 @@
-# v1.0.18
+# v1.0.19
 
 ### 한국어
-- 접속 직후 공유용 채널이 공개 채널의 번호(1번)를 차지할 수 있던 문제를 고쳤습니다.
+- 파티 창에 내 캐릭터도 표시하고, 1번 탱커 · 2번 치유 · 나머지 딜러 순서로 놓습니다. 파티원이 바뀌면 전투 중에도 바로 다시 놓습니다(설정에서 끌 수 있음).
+- 멀리 있는 파티원·대상의 버프가 두 번씩 보이던 문제를 수정했습니다.
 
 ### English
-- Fixed the data-sharing channel possibly taking General's number (1) right after login.
+- Party frames now include you and are ordered tank, healer, then damage dealers, re-sorted at once even in combat (can be turned off in the settings).
+- Fixed buffs of far-away party members and targets showing twice.
