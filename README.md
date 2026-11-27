@@ -9,9 +9,9 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 
 ### 화면 미리보기
 
-![유닛 프레임과 이름표](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/ui_ko.png)
+![유닛 프레임과 이름표](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/ui_ko.png)
 
-![설정창](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
+![설정창](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
 
 > 실제 게임 화면입니다(WoW Forever, 한국어 클라이언트). 캐릭터 · 다른 플레이어 이름과 채팅 내용은 가렸습니다.
 
@@ -62,9 +62,9 @@ Clean EzWoW-style player, target, target of target, focus, pet and party frames,
 
 ### Screenshots
 
-![Unit frames and nameplates](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/ui_en.png)
+![Unit frames and nameplates](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/ui_en.png)
 
-![Settings window](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_en.png)
+![Settings window](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/settings_en.png)
 
 > In-game screenshots with the addon set to English. The game client is Korean, so game text such as zone, item and spell names stays Korean. Character and player names and chat text are blurred.
 

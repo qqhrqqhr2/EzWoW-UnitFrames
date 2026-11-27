@@ -9,9 +9,9 @@ CurseForge summary (KO): 내 캐릭터·대상·대상의 대상·주시 대상�
 
 Clean unit frames for WoW Forever: player, target, target of target, focus, pet and party, plus enemy and friendly nameplates. Cast bars, buffs and debuffs, incoming heals, energy and mana ticks, combo points and lively health bars, all in the EzWoW style.
 
-![Unit frames and nameplates](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/ui_en.png)
+![Unit frames and nameplates](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/ui_en.png)
 
-![Settings window](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_en.png)
+![Settings window](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/settings_en.png)
 
 *In-game screenshots with the addon set to English. The game client is Korean, so game text such as zone, item and spell names stays Korean. Character and player names and chat text are blurred.*
 
@@ -78,9 +78,9 @@ Languages: English, 한국어, Deutsch, Français, Español, Русский, 简
 
 WoW Forever용 유닛 프레임입니다. 내 캐릭터·대상·대상의 대상·주시 대상·소환수·파티 프레임과 적·아군 이름표를 깔끔한 EzWoW 스타일로 바꿉니다. 시전바, 버프·디버프, 예상 치유량, 기력·마나 틱, 연계 점수, 살아 있는 체력바 효과를 제공합니다.
 
-![유닛 프레임과 이름표](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/ui_ko.png)
+![유닛 프레임과 이름표](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/ui_ko.png)
 
-![설정창](https://raw.githubusercontent.com/qqhrqqhr2/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
+![설정창](https://raw.githubusercontent.com/ezwow-addons/EzWoW-UnitFrames/master/docs/images/settings_ko.png)
 
 *실제 게임 화면입니다(WoW Forever, 한국어 클라이언트). 캐릭터 · 다른 플레이어 이름과 채팅 내용은 가렸습니다.*
 
